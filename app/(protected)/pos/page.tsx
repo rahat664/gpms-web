@@ -1,20 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Autocomplete,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Chip,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { toast } from "sonner";
 import { PageShell } from "@/components/page-shell";
 import { POStatusTimeline } from "@/components/POStatusTimeline";
 import { RightDrawer } from "@/components/RightDrawer";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FormRow } from "@/components/form-row";
-import { SearchableSelect } from "@/components/SearchableSelect";
 import { apiGet, apiPost } from "@/lib/api";
+import { requirePositiveNumber, requireText } from "@/lib/form-validation";
 import { useAppStore } from "@/lib/store";
 
 type Buyer = { id: string; name: string };
@@ -94,22 +101,31 @@ export default function PosPage() {
   });
 
   const createPo = useMutation({
-    mutationFn: () => apiPost("/pos", { poNo, buyerId }),
+    mutationFn: () =>
+      apiPost("/pos", {
+        poNo: requireText(poNo, "PO No"),
+        buyerId: requireText(buyerId, "Buyer"),
+      }),
     onSuccess: () => {
       setPoNo("");
       setBuyerId("");
       queryClient.invalidateQueries({ queryKey: ["pos-list"] });
       toast.success("PO created");
     },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? error?.message ?? "Failed to create PO");
+    },
   });
 
   const addPoItem = useMutation({
-    mutationFn: () =>
-      apiPost(`/pos/${poId}/items`, {
-        styleId,
-        color,
-        quantity: Number(quantity),
-      }),
+    mutationFn: () => {
+      const nextPoId = requireText(poId, "PO");
+      return apiPost(`/pos/${nextPoId}/items`, {
+        styleId: requireText(styleId, "Style"),
+        color: requireText(color, "Color"),
+        quantity: requirePositiveNumber(quantity, "Quantity"),
+      });
+    },
     onSuccess: () => {
       setStyleId("");
       setColor("");
@@ -120,6 +136,9 @@ export default function PosPage() {
         queryClient.invalidateQueries({ queryKey: ["po-requirement", detailId] });
       }
       toast.success("PO item added");
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? error?.message ?? "Failed to add PO item");
     },
   });
 
@@ -137,6 +156,19 @@ export default function PosPage() {
   );
   const stockByMaterialId = new Map(
     (stockQuery.data ?? []).map((item) => [item.materialId, item.availableQty]),
+  );
+
+  const selectedBuyer = useMemo(
+    () => (buyersQuery.data ?? []).find((buyer) => buyer.id === buyerId) ?? null,
+    [buyersQuery.data, buyerId],
+  );
+  const selectedPo = useMemo(
+    () => (posQuery.data ?? []).find((po) => po.id === poId) ?? null,
+    [posQuery.data, poId],
+  );
+  const selectedStyle = useMemo(
+    () => (stylesQuery.data ?? []).find((style) => style.id === styleId) ?? null,
+    [stylesQuery.data, styleId],
   );
 
   const exportRequirementCsv = () => {
@@ -168,82 +200,116 @@ export default function PosPage() {
 
   return (
     <PageShell title="Purchase Orders">
-      <div className="space-y-6">
-        <div className="grid gap-6 xl:grid-cols-12">
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        <Box className="grid gap-6 xl:grid-cols-12">
           <Card className="xl:col-span-4">
-            <CardHeader><CardTitle>Create PO</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <FormRow label="PO No">
-                <Input value={poNo} onChange={(e) => setPoNo(e.target.value)} />
-              </FormRow>
-              <FormRow label="Buyer ID">
-                <SearchableSelect
-                  value={buyerId}
-                  onChange={setBuyerId}
-                  placeholder="Select buyer"
-                  options={(buyersQuery.data ?? []).map((buyer) => ({
-                    value: buyer.id,
-                    label: buyer.name,
-                    keywords: buyer.id,
-                  }))}
+            <CardHeader title="Create PO" />
+            <CardContent>
+              <Stack spacing={2}>
+                <TextField
+                  label="PO No"
+                  value={poNo}
+                  onChange={(event) => setPoNo(event.target.value)}
+                  fullWidth
                 />
-              </FormRow>
-              <Button className="w-full" onClick={() => createPo.mutate()} disabled={createPo.isPending}>
-                {createPo.isPending ? "Creating..." : "Create PO"}
-              </Button>
+                <Autocomplete
+                  options={buyersQuery.data ?? []}
+                  value={selectedBuyer}
+                  onChange={(_, next) => setBuyerId(next?.id ?? "")}
+                  getOptionLabel={(option) => option.name}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  renderInput={(params) => <TextField {...params} label="Buyer ID" />}
+                  slotProps={{
+                    popper: {
+                      sx: { zIndex: 9999 },
+                    },
+                  }}
+                />
+                <Button
+                  variant="contained"
+                  onClick={() => createPo.mutate()}
+                  disabled={createPo.isPending}
+                  fullWidth
+                >
+                  {createPo.isPending ? "Creating..." : "Create PO"}
+                </Button>
+              </Stack>
             </CardContent>
           </Card>
+
           <Card className="xl:col-span-4">
-            <CardHeader><CardTitle>Add PO Item</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <FormRow label="PO ID">
-                <SearchableSelect
-                  value={poId}
-                  onChange={setPoId}
-                  placeholder="Select PO"
-                  options={(posQuery.data ?? []).map((po) => ({
-                    value: po.id,
-                    label: `${po.poNo} · ${po.buyer?.name ?? "No buyer"}`,
-                    keywords: `${po.id} ${po.status}`,
-                  }))}
+            <CardHeader title="Add PO Item" />
+            <CardContent>
+              <Stack spacing={2}>
+                <Autocomplete
+                  options={posQuery.data ?? []}
+                  value={selectedPo}
+                  onChange={(_, next) => setPoId(next?.id ?? "")}
+                  getOptionLabel={(option) => `${option.poNo} · ${option.buyer?.name ?? "No buyer"}`}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  renderInput={(params) => <TextField {...params} label="PO ID" />}
+                  slotProps={{
+                    popper: {
+                      sx: { zIndex: 9999 },
+                    },
+                  }}
                 />
-              </FormRow>
-              <FormRow label="Style ID">
-                <SearchableSelect
-                  value={styleId}
-                  onChange={setStyleId}
-                  placeholder="Select style"
-                  options={(stylesQuery.data ?? []).map((style) => ({
-                    value: style.id,
-                    label: `${style.styleNo} · ${style.name ?? "Unnamed"}`,
-                    keywords: style.id,
-                  }))}
+                <Autocomplete
+                  options={stylesQuery.data ?? []}
+                  value={selectedStyle}
+                  onChange={(_, next) => setStyleId(next?.id ?? "")}
+                  getOptionLabel={(option) => `${option.styleNo} · ${option.name ?? "Unnamed"}`}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  renderInput={(params) => <TextField {...params} label="Style ID" />}
+                  slotProps={{
+                    popper: {
+                      sx: { zIndex: 9999 },
+                    },
+                  }}
                 />
-              </FormRow>
-              <div className="grid gap-4 md:grid-cols-2">
-                <FormRow label="Color">
-                  <Input value={color} onChange={(e) => setColor(e.target.value)} />
-                </FormRow>
-                <FormRow label="Quantity">
-                  <Input value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-                </FormRow>
-              </div>
-              <Button className="w-full" onClick={() => addPoItem.mutate()} disabled={addPoItem.isPending}>
-                {addPoItem.isPending ? "Adding..." : "Add Item"}
-              </Button>
+                <Box className="grid gap-4 md:grid-cols-2">
+                  <TextField
+                    label="Color"
+                    value={color}
+                    onChange={(event) => setColor(event.target.value)}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Quantity"
+                    value={quantity}
+                    onChange={(event) => setQuantity(event.target.value)}
+                    fullWidth
+                  />
+                </Box>
+                <Button
+                  variant="contained"
+                  onClick={() => addPoItem.mutate()}
+                  disabled={addPoItem.isPending}
+                  fullWidth
+                >
+                  {addPoItem.isPending ? "Adding..." : "Add Item"}
+                </Button>
+              </Stack>
             </CardContent>
           </Card>
+
           <Card className="xl:col-span-4">
-            <CardContent className="p-6">
-              <div className="text-xs uppercase tracking-[0.32em] text-muted-foreground">Control</div>
-              <div className="mt-3 text-3xl font-semibold">{filtered.length}</div>
-              <div className="mt-2 text-sm text-muted-foreground">Purchase orders in current factory scope</div>
+            <CardContent sx={{ pt: 3 }}>
+              <Typography variant="overline" color="text.secondary">
+                Control
+              </Typography>
+              <Typography variant="h3" sx={{ mt: 1, fontWeight: 700 }}>
+                {filtered.length}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                Purchase orders in current factory scope
+              </Typography>
             </CardContent>
           </Card>
-        </div>
+        </Box>
 
         <Card>
-          <CardHeader><CardTitle>PO Registry</CardTitle></CardHeader>
+          <CardHeader title="PO Registry" />
           <CardContent>
             <Table>
               <TableHeader>
@@ -264,7 +330,7 @@ export default function PosPage() {
                     <TableCell>{po._count?.items ?? 0}</TableCell>
                     <TableCell onClick={(event) => event.stopPropagation()}>
                       <Button
-                        variant="outline"
+                        variant="outlined"
                         disabled={po.status !== "DRAFT" || confirmPo.isPending}
                         onClick={() => confirmPo.mutate(po.id)}
                       >
@@ -277,7 +343,7 @@ export default function PosPage() {
             </Table>
           </CardContent>
         </Card>
-      </div>
+      </Box>
 
       <RightDrawer
         open={Boolean(detailId)}
@@ -287,33 +353,46 @@ export default function PosPage() {
         title={poDetailQuery.data?.poNo ?? "PO Detail"}
         description="Items, status, and material requirement"
       >
-        <div className="space-y-6">
+        <Stack spacing={3}>
           <Card>
-            <CardHeader><CardTitle>PO Overview</CardTitle></CardHeader>
-            <CardContent className="space-y-5">
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <div className="text-xs text-muted-foreground">PO Number</div>
-                  <div className="mt-2 text-lg font-semibold">{poDetailQuery.data?.poNo ?? "-"}</div>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <div className="text-xs text-muted-foreground">Buyer</div>
-                  <div className="mt-2 text-lg font-semibold">{poDetailQuery.data?.buyer?.name ?? "-"}</div>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <div className="text-xs text-muted-foreground">Ship Date</div>
-                  <div className="mt-2 text-lg font-semibold">
+            <CardHeader title="PO Overview" />
+            <CardContent>
+              <Box className="grid gap-4 md:grid-cols-3">
+                <Box className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <Typography variant="caption" color="text.secondary">
+                    PO Number
+                  </Typography>
+                  <Typography variant="h6" sx={{ mt: 1 }}>
+                    {poDetailQuery.data?.poNo ?? "-"}
+                  </Typography>
+                </Box>
+                <Box className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <Typography variant="caption" color="text.secondary">
+                    Buyer
+                  </Typography>
+                  <Typography variant="h6" sx={{ mt: 1 }}>
+                    {poDetailQuery.data?.buyer?.name ?? "-"}
+                  </Typography>
+                </Box>
+                <Box className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <Typography variant="caption" color="text.secondary">
+                    Ship Date
+                  </Typography>
+                  <Typography variant="h6" sx={{ mt: 1 }}>
                     {poDetailQuery.data?.shipDate
                       ? new Date(poDetailQuery.data.shipDate).toLocaleDateString()
                       : "Not scheduled"}
-                  </div>
-                </div>
-              </div>
-              <POStatusTimeline status={poDetailQuery.data?.status} />
+                  </Typography>
+                </Box>
+              </Box>
+              <Box sx={{ mt: 3 }}>
+                <POStatusTimeline status={poDetailQuery.data?.status} />
+              </Box>
             </CardContent>
           </Card>
+
           <Card>
-            <CardHeader><CardTitle>PO Items</CardTitle></CardHeader>
+            <CardHeader title="PO Items" />
             <CardContent>
               <Table>
                 <TableHeader>
@@ -335,22 +414,28 @@ export default function PosPage() {
               </Table>
             </CardContent>
           </Card>
+
           <Card>
-            <CardHeader className="flex-row items-center justify-between">
-              <CardTitle>Material Requirement</CardTitle>
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={exportRequirementCsv}
-                disabled={!requirementQuery.data?.materials?.length}
-              >
-                <Download className="h-4 w-4" />
-                Download requirement CSV
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            <CardHeader
+              title="Material Requirement"
+              action={
+                <Button
+                  variant="outlined"
+                  onClick={exportRequirementCsv}
+                  disabled={!requirementQuery.data?.materials?.length}
+                >
+                  <Box component="span" sx={{ display: "inline-flex", mr: 1 }}>
+                    <Download size={16} />
+                  </Box>
+                  Download requirement CSV
+                </Button>
+              }
+            />
+            <CardContent>
               {requirementQuery.isError ? (
-                <div className="text-sm text-muted-foreground">Requirement unavailable for this PO.</div>
+                <Typography variant="body2" color="text.secondary">
+                  Requirement unavailable for this PO.
+                </Typography>
               ) : (
                 <Table>
                   <TableHeader>
@@ -374,15 +459,12 @@ export default function PosPage() {
                           <TableCell>{stockQty}</TableCell>
                           <TableCell>{material.uom}</TableCell>
                           <TableCell>
-                            <Badge
-                              className={
-                                shortage
-                                  ? "bg-red-500/15 text-red-200"
-                                  : "bg-emerald-500/15 text-emerald-200"
-                              }
-                            >
-                              {shortage ? "Shortage" : "Covered"}
-                            </Badge>
+                            <Chip
+                              size="small"
+                              label={shortage ? "Shortage" : "Covered"}
+                              color={shortage ? "error" : "success"}
+                              variant="outlined"
+                            />
                           </TableCell>
                         </TableRow>
                       );
@@ -392,7 +474,7 @@ export default function PosPage() {
               )}
             </CardContent>
           </Card>
-        </div>
+        </Stack>
       </RightDrawer>
     </PageShell>
   );
