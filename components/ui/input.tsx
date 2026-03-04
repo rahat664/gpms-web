@@ -1,16 +1,44 @@
 import * as React from "react";
+import TextField from "@mui/material/TextField";
 import { cn } from "@/lib/utils";
 
-export const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
-  ({ className, ...props }, ref) => (
-    <input
-      ref={ref}
-      className={cn(
-        "flex h-10 w-full rounded-xl border border-white/10 bg-card/70 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        className,
-      )}
-      {...props}
+type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
+  className?: string;
+  label?: string;
+  helperText?: React.ReactNode;
+};
+
+export function Input({
+  className,
+  label,
+  helperText,
+  ...props
+}: InputProps) {
+  return (
+    <TextField
+      size="small"
+      variant="outlined"
+      fullWidth
+      label={label}
+      helperText={helperText}
+      className={cn(className)}
+      value={props.value ?? ""}
+      onChange={props.onChange}
+      name={props.name}
+      type={props.type}
+      placeholder={props.placeholder}
+      disabled={props.disabled}
+      required={props.required}
+      autoFocus={props.autoFocus}
+      multiline={false}
+      inputProps={{
+        min: props.min,
+        max: props.max,
+        step: props.step,
+        pattern: props.pattern,
+        inputMode: props.inputMode,
+        maxLength: props.maxLength,
+      }}
     />
-  ),
-);
-Input.displayName = "Input";
+  );
+}

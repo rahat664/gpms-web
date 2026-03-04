@@ -2,25 +2,30 @@
 
 import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { CssBaseline, ThemeProvider } from "@mui/material";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth";
 import { useAppStore } from "@/lib/store";
+import theme from "@/src/theme/theme";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
-  const theme = useAppStore((state) => state.theme);
+  const appTheme = useAppStore((state) => state.theme);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    document.documentElement.style.colorScheme = theme;
-  }, [theme]);
+    document.documentElement.classList.toggle("dark", appTheme === "dark");
+    document.documentElement.style.colorScheme = "dark";
+  }, [appTheme]);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        {children}
-        <Toaster richColors position="top-right" theme={theme} />
-      </AuthProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <AuthProvider>
+          {children}
+          <Toaster richColors position="top-right" theme="dark" />
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

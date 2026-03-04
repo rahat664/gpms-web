@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Command } from "cmdk";
 import {
   Boxes,
   ClipboardCheck,
@@ -15,6 +14,14 @@ import {
   Users,
   Wrench,
 } from "lucide-react";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import List from "@mui/material/List";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { useAppStore } from "@/lib/store";
 
 const navCommands = [
@@ -39,6 +46,7 @@ export function CommandPalette() {
   const open = useAppStore((state) => state.commandPaletteOpen);
   const setOpen = useAppStore((state) => state.setCommandPaletteOpen);
   const openActionIntent = useAppStore((state) => state.openActionIntent);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -55,71 +63,65 @@ export function CommandPalette() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, setOpen]);
 
-  if (!open) return null;
+  const q = query.trim().toLowerCase();
+  const filteredNav = useMemo(
+    () => navCommands.filter((item) => !q || item.label.toLowerCase().includes(q)),
+    [q],
+  );
+  const filteredActions = useMemo(
+    () => actionCommands.filter((item) => !q || item.label.toLowerCase().includes(q)),
+    [q],
+  );
 
   return (
-    <div className="fixed inset-0 z-[70] bg-black/55 backdrop-blur-sm">
-      <button
-        aria-label="Close command palette"
-        className="absolute inset-0"
-        onClick={() => setOpen(false)}
-        type="button"
-      />
-      <div className="relative mx-auto mt-[12vh] w-[min(92vw,720px)] overflow-hidden rounded-[28px] border border-white/10 bg-background/95 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
-        <Command className="text-foreground">
-          <div className="border-b border-white/10 px-4">
-            <Command.Input
-              autoFocus
-              className="h-14 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-              placeholder="Search navigation and actions..."
-            />
-          </div>
-          <Command.List className="max-h-[60vh] overflow-y-auto p-3">
-            <Command.Empty className="px-3 py-6 text-sm text-muted-foreground">
-              No results found.
-            </Command.Empty>
-            <Command.Group heading="Navigation" className="mb-3">
-              <div className="px-3 pb-2 pt-1 text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-                Navigation
-              </div>
-              {navCommands.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Command.Item
-                    key={item.href}
-                    className="flex cursor-pointer items-center gap-3 rounded-2xl px-3 py-3 text-sm outline-none data-[selected=true]:bg-white/10"
-                    onSelect={() => {
-                      setOpen(false);
-                      router.push(item.href);
-                    }}
-                  >
-                    <Icon className="h-4 w-4 text-primary" />
-                    <span>{item.label}</span>
-                  </Command.Item>
-                );
-              })}
-            </Command.Group>
-            <Command.Group heading="Actions">
-              <div className="px-3 pb-2 pt-1 text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-                Actions
-              </div>
-              {actionCommands.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Command.Item
-                    key={item.intent}
-                    className="flex cursor-pointer items-center gap-3 rounded-2xl px-3 py-3 text-sm outline-none data-[selected=true]:bg-white/10"
-                    onSelect={() => openActionIntent(item.intent)}
-                  >
-                    <Icon className="h-4 w-4 text-primary" />
-                    <span>{item.label}</span>
-                  </Command.Item>
-                );
-              })}
-            </Command.Group>
-          </Command.List>
-        </Command>
-      </div>
-    </div>
+    <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="md">
+      <DialogContent sx={{ p: 2 }}>
+        <TextField
+          autoFocus
+          fullWidth
+          placeholder="Search navigation and actions..."
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+
+        <Typography variant="overline" sx={{ mt: 2, display: "block" }}>Navigation</Typography>
+        <List dense>
+          {filteredNav.map((item) => {
+            const Icon = item.icon;
+            return (
+              <ListItemButton
+                key={item.href}
+                onClick={() => {
+                  setOpen(false);
+                  router.push(item.href);
+                }}
+              >
+                <ListItemIcon><Icon size={16} /></ListItemIcon>
+                <ListItemText primary={item.label} />
+              </ListItemButton>
+            );
+          })}
+        </List>
+
+        <Typography variant="overline" sx={{ mt: 1, display: "block" }}>Actions</Typography>
+        <List dense>
+          {filteredActions.map((item) => {
+            const Icon = item.icon;
+            return (
+              <ListItemButton
+                key={item.intent}
+                onClick={() => {
+                  setOpen(false);
+                  openActionIntent(item.intent);
+                }}
+              >
+                <ListItemIcon><Icon size={16} /></ListItemIcon>
+                <ListItemText primary={item.label} />
+              </ListItemButton>
+            );
+          })}
+        </List>
+      </DialogContent>
+    </Dialog>
   );
 }

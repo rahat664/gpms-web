@@ -1,16 +1,9 @@
+import Chip from "@mui/material/Chip";
 import { cn } from "@/lib/utils";
 
 export function Badge({
   className,
-  ...props
+  children,
 }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn(
-        "inline-flex items-center rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold text-secondary-foreground",
-        className,
-      )}
-      {...props}
-    />
-  );
+  return <Chip size="small" label={children} className={cn(className)} />;
 }

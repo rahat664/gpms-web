@@ -1,17 +1,25 @@
 import * as React from "react";
+import TextField from "@mui/material/TextField";
 import { cn } from "@/lib/utils";
 
-export const Textarea = React.forwardRef<
-  HTMLTextAreaElement,
-  React.ComponentProps<"textarea">
->(({ className, ...props }, ref) => (
-  <textarea
-    ref={ref}
-    className={cn(
-      "min-h-24 w-full rounded-md border border-input bg-card px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-      className,
-    )}
-    {...props}
-  />
-));
-Textarea.displayName = "Textarea";
+export function Textarea({
+  className,
+  multiline = true,
+  minRows = 4,
+  size = "small",
+  variant = "outlined",
+  fullWidth = true,
+  ...props
+}: React.ComponentProps<typeof TextField>) {
+  return (
+    <TextField
+      multiline={multiline}
+      minRows={minRows}
+      size={size}
+      variant={variant}
+      fullWidth={fullWidth}
+      className={cn(className)}
+      {...props}
+    />
+  );
+}

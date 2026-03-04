@@ -1,67 +1,73 @@
 "use client";
 
 import * as React from "react";
-import * as SelectPrimitive from "@radix-ui/react-select";
-import { Check, ChevronDown } from "lucide-react";
+import FormControl from "@mui/material/FormControl";
+import MuiSelect from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import type { SelectChangeEvent } from "@mui/material/Select";
 import { cn } from "@/lib/utils";
 
-export const Select = SelectPrimitive.Root;
-export const SelectValue = SelectPrimitive.Value;
+const SelectContext = React.createContext<{
+  value?: string;
+  onValueChange?: (value: string) => void;
+} | null>(null);
+
+export function Select({
+  value,
+  onValueChange,
+  children,
+}: {
+  value?: string;
+  onValueChange?: (value: string) => void;
+  children: React.ReactNode;
+}) {
+  return <SelectContext.Provider value={{ value, onValueChange }}>{children}</SelectContext.Provider>;
+}
+
+export function SelectValue({ placeholder }: { placeholder?: string }) {
+  return <>{placeholder}</>;
+}
 
 export function SelectTrigger({
   className,
   children,
-  ...props
-}: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>) {
+}: {
+  className?: string;
+  children?: React.ReactNode;
+}) {
+  const ctx = React.useContext(SelectContext);
+  const [content, items] = React.Children.toArray(children ?? []).reduce<React.ReactNode[]>(
+    (acc, child) => {
+      acc.push(child);
+      return acc;
+    },
+    [],
+  );
+
   return (
-    <SelectPrimitive.Trigger
-      className={cn(
-        "flex h-10 w-full items-center justify-between rounded-md border border-input bg-card px-3 py-2 text-sm",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-      <SelectPrimitive.Icon asChild>
-        <ChevronDown className="h-4 w-4 opacity-50" />
-      </SelectPrimitive.Icon>
-    </SelectPrimitive.Trigger>
+    <FormControl size="small" className={cn("min-w-[220px]", className)}>
+      <MuiSelect
+        value={ctx?.value ?? ""}
+        onChange={(event: SelectChangeEvent) => ctx?.onValueChange?.(event.target.value)}
+        displayEmpty
+        MenuProps={{ PaperProps: { sx: { zIndex: 9999 } } }}
+      >
+        {items}
+      </MuiSelect>
+    </FormControl>
   );
 }
 
-export function SelectContent({
-  className,
-  children,
-  ...props
-}: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>) {
-  return (
-    <SelectPrimitive.Portal>
-      <SelectPrimitive.Content
-        className={cn("z-50 min-w-[8rem] overflow-hidden rounded-md border bg-card shadow-md", className)}
-        {...props}
-      >
-        <SelectPrimitive.Viewport className="p-1">{children}</SelectPrimitive.Viewport>
-      </SelectPrimitive.Content>
-    </SelectPrimitive.Portal>
-  );
+export function SelectContent({ children }: { children?: React.ReactNode }) {
+  return <>{children}</>;
 }
 
 export function SelectItem({
-  className,
+  value,
   children,
-  ...props
-}: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>) {
-  return (
-    <SelectPrimitive.Item
-      className={cn("relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-muted", className)}
-      {...props}
-    >
-      <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-        <SelectPrimitive.ItemIndicator>
-          <Check className="h-4 w-4" />
-        </SelectPrimitive.ItemIndicator>
-      </span>
-      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
-    </SelectPrimitive.Item>
-  );
+}: {
+  value: string;
+  children: React.ReactNode;
+}) {
+  return <MenuItem value={value}>{children}</MenuItem>;
 }

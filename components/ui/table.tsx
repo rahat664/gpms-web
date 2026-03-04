@@ -1,27 +1,33 @@
+import * as React from "react";
+import TableContainer from "@mui/material/TableContainer";
+import MuiTable from "@mui/material/Table";
+import MuiTableHead from "@mui/material/TableHead";
+import MuiTableBody from "@mui/material/TableBody";
+import MuiTableRow from "@mui/material/TableRow";
+import MuiTableCell from "@mui/material/TableCell";
+import Paper from "@mui/material/Paper";
 import { cn } from "@/lib/utils";
 
-export function Table({ className, ...props }: React.TableHTMLAttributes<HTMLTableElement>) {
+export function Table({ className, ...props }: React.ComponentProps<typeof MuiTable>) {
   return (
-    <div className="w-full overflow-auto rounded-[20px] border border-white/10">
-      <table className={cn("w-full caption-bottom text-sm", className)} {...props} />
-    </div>
+    <TableContainer component={Paper} className="w-full overflow-x-auto">
+      <MuiTable className={cn(className)} {...props} />
+    </TableContainer>
   );
 }
 
-export const TableHeader = (props: React.HTMLAttributes<HTMLTableSectionElement>) => <thead {...props} />;
-export const TableBody = (props: React.HTMLAttributes<HTMLTableSectionElement>) => <tbody {...props} />;
-export const TableRow = ({ className, ...props }: React.HTMLAttributes<HTMLTableRowElement>) => (
-  <tr className={cn("border-b border-white/5 transition-colors hover:bg-white/5", className)} {...props} />
+export const TableHeader = (props: React.ComponentProps<typeof MuiTableHead>) => (
+  <MuiTableHead {...props} />
 );
-export const TableHead = ({ className, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) => (
-  <th
-    className={cn(
-      "sticky top-0 h-11 bg-background/80 px-4 text-left align-middle font-medium text-muted-foreground backdrop-blur",
-      className,
-    )}
-    {...props}
-  />
+export const TableBody = (props: React.ComponentProps<typeof MuiTableBody>) => (
+  <MuiTableBody {...props} />
 );
-export const TableCell = ({ className, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) => (
-  <td className={cn("p-4 align-middle", className)} {...props} />
+export const TableRow = ({ className, ...props }: React.ComponentProps<typeof MuiTableRow>) => (
+  <MuiTableRow className={cn(className)} {...props} />
+);
+export const TableHead = ({ className, ...props }: React.ComponentProps<typeof MuiTableCell>) => (
+  <MuiTableCell className={cn(className)} {...props} />
+);
+export const TableCell = ({ className, ...props }: React.ComponentProps<typeof MuiTableCell>) => (
+  <MuiTableCell className={cn(className)} {...props} />
 );

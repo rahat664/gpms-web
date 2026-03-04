@@ -57,19 +57,16 @@ body {
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
 }
 
-input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(1);
-}
-
-.dark input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.85);
-}
-
 ::selection {
   background: hsl(var(--primary) / 0.35);
 }
 
 @layer utilities {
+  .dropdown-layer {
+    position: relative;
+    z-index: 9999;
+  }
+
   .glass-card {
     @apply border border-white/10 bg-white/5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] backdrop-blur-xl;
   }

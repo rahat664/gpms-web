@@ -1,14 +1,9 @@
-import * as LabelPrimitive from "@radix-ui/react-label";
+import FormLabel from "@mui/material/FormLabel";
 import { cn } from "@/lib/utils";
 
 export function Label({
   className,
   ...props
-}: React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root>) {
-  return (
-    <LabelPrimitive.Root
-      className={cn("text-sm font-medium leading-none", className)}
-      {...props}
-    />
-  );
+}: React.ComponentProps<typeof FormLabel>) {
+  return <FormLabel className={cn("text-sm", className)} {...props} />;
 }
