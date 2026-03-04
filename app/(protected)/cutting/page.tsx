@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { FormRow } from "@/components/form-row";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { apiGet, apiPost } from "@/lib/api";
+import { requirePositiveNumber, requireText } from "@/lib/form-validation";
 
 type CuttingBatch = {
   id: string;
@@ -67,25 +68,42 @@ export default function CuttingPage() {
   });
 
   const createBatch = useMutation({
-    mutationFn: () => apiPost<CuttingBatch>("/cutting/batches", batch),
+    mutationFn: () =>
+      apiPost<CuttingBatch>("/cutting/batches", {
+        poItemId: requireText(batch.poItemId, "PO Item"),
+        batchNo: requireText(batch.batchNo, "Batch No"),
+      }),
     onSuccess: (response) => {
       setBatchId(response.id);
       queryClient.invalidateQueries({ queryKey: ["cutting-batch", response.id] });
       toast.success("Cutting batch created");
     },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? error?.message ?? "Failed to create batch");
+    },
   });
 
   const createBundles = useMutation({
-    mutationFn: () =>
-      apiPost(`/cutting/batches/${batchId}/bundles`, {
-        bundles: [{ size: bundleSize, qty: Number(bundleQty) }],
-      }),
+    mutationFn: () => {
+      const nextBatchId = requireText(batchId, "Batch ID");
+      return apiPost(`/cutting/batches/${nextBatchId}/bundles`, {
+        bundles: [
+          {
+            size: requireText(bundleSize, "Size"),
+            qty: requirePositiveNumber(bundleQty, "Qty"),
+          },
+        ],
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cutting-batch", batchId] });
       queryClient.invalidateQueries({ queryKey: ["cutting-batch-detail", selectedBatchId] });
       setBundleSize("");
       setBundleQty("");
       toast.success("Bundles generated");
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? error?.message ?? "Failed to generate bundles");
     },
   });
 

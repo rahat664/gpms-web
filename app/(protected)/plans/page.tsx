@@ -12,6 +12,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { FormRow } from "@/components/form-row";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { apiGet, apiPost } from "@/lib/api";
+import {
+  ensureDateOrder,
+  requireDate,
+  requireText,
+} from "@/lib/form-validation";
 
 type PlanDetail = {
   id: string;
@@ -30,6 +35,7 @@ type PlanDetail = {
 export default function PlansPage() {
   const queryClient = useQueryClient();
   const [planId, setPlanId] = useState("");
+  const [knownPlanIds, setKnownPlanIds] = useState<string[]>([]);
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -73,23 +79,51 @@ export default function PlansPage() {
   });
 
   const createPlan = useMutation({
-    mutationFn: () => apiPost<PlanDetail>("/plans", { name, startDate, endDate }),
+    mutationFn: () => {
+      ensureDateOrder(startDate, endDate);
+      return apiPost<PlanDetail>("/plans", {
+        name: requireText(name, "Name"),
+        startDate: requireDate(startDate, "Start Date"),
+        endDate: requireDate(endDate, "End Date"),
+      });
+    },
     onSuccess: (response) => {
       setPlanId(response.id);
+      setKnownPlanIds((current) =>
+        current.includes(response.id) ? current : [response.id, ...current],
+      );
       queryClient.invalidateQueries({ queryKey: ["plan-detail", response.id] });
       toast.success("Plan created");
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? error?.message ?? "Failed to create plan");
     },
   });
 
   const assignPlan = useMutation({
-    mutationFn: () =>
-      apiPost(`/plans/${planId}/assign`, {
-        ...assign,
-        dailyTargets: [{ date: assign.date, targetQty: Number(assign.targetQty) }],
-      }),
+    mutationFn: () => {
+      const parsedTargetQty = Number(assign.targetQty);
+      if (!Number.isFinite(parsedTargetQty) || parsedTargetQty < 1) {
+        throw new Error("Target Qty must be at least 1");
+      }
+      ensureDateOrder(assign.startDate, assign.endDate);
+      const targetDate = requireDate(assign.date, "Target Date");
+
+      return apiPost(`/plans/${planId}/assign`, {
+        poId: requireText(assign.poId, "PO"),
+        poItemId: requireText(assign.poItemId, "PO Item"),
+        lineId: requireText(assign.lineId, "Line"),
+        startDate: requireDate(assign.startDate, "Start Date"),
+        endDate: requireDate(assign.endDate, "End Date"),
+        dailyTargets: [{ date: targetDate, targetQty: parsedTargetQty }],
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["plan-detail", planId] });
       toast.success("Plan line assigned");
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? error?.message ?? "Failed to assign plan");
     },
   });
 
@@ -120,7 +154,27 @@ export default function PlansPage() {
             <CardHeader><CardTitle>Assign Line</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <FormRow label="Plan ID">
-                <Input value={planId} onChange={(e) => setPlanId(e.target.value)} />
+                <SearchableSelect
+                  value={planId}
+                  onChange={setPlanId}
+                  placeholder="Select plan"
+                  options={[
+                    ...knownPlanIds.map((id) => ({
+                      value: id,
+                      label: `Plan ${id.slice(0, 8)}`,
+                      keywords: id,
+                    })),
+                    ...(planId && !knownPlanIds.includes(planId)
+                      ? [
+                          {
+                            value: planId,
+                            label: `Plan ${planId.slice(0, 8)}`,
+                            keywords: planId,
+                          },
+                        ]
+                      : []),
+                  ]}
+                />
               </FormRow>
               <FormRow label="PO ID">
                 <SearchableSelect

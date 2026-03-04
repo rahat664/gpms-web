@@ -10,7 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FormRow } from "@/components/form-row";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { apiGet, apiPost } from "@/lib/api";
+import { requirePositiveNumber, requireText } from "@/lib/form-validation";
 import { useAppStore } from "@/lib/store";
 
 type StockRow = {
@@ -36,8 +38,8 @@ export default function InventoryPage() {
   const receiveMutation = useMutation({
     mutationFn: () =>
       apiPost("/inventory/receive", {
-        materialId,
-        qty: Number(qty),
+        materialId: requireText(materialId, "Material ID"),
+        qty: requirePositiveNumber(qty, "Qty"),
         refType: "GRN",
       }),
     onSuccess: () => {
@@ -45,19 +47,25 @@ export default function InventoryPage() {
       queryClient.invalidateQueries({ queryKey: ["inventory-stock"] });
       toast.success("Inventory received");
     },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? error?.message ?? "Failed to receive stock");
+    },
   });
 
   const issueMutation = useMutation({
     mutationFn: () =>
       apiPost("/inventory/issue-to-cutting", {
-        materialId,
-        qty: Number(qty),
+        materialId: requireText(materialId, "Material ID"),
+        qty: requirePositiveNumber(qty, "Qty"),
         refType: "ISSUE_CUTTING",
       }),
     onSuccess: () => {
       setQty("");
       queryClient.invalidateQueries({ queryKey: ["inventory-stock"] });
       toast.success("Inventory issued");
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? error?.message ?? "Failed to issue stock");
     },
   });
 
@@ -70,6 +78,17 @@ export default function InventoryPage() {
       ),
     [globalSearch, stockQuery.data],
   );
+  const materialOptions = useMemo(
+    () =>
+      Array.from(
+        new Map((stockQuery.data ?? []).map((row) => [row.materialId, row])).values(),
+      ).map((row) => ({
+        value: row.materialId,
+        label: `${row.materialName} · ${row.materialType} · ${row.uom}`,
+        keywords: row.materialId,
+      })),
+    [stockQuery.data],
+  );
 
   return (
     <PageShell title="Inventory">
@@ -79,7 +98,12 @@ export default function InventoryPage() {
             <CardHeader><CardTitle>Receive</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <FormRow label="Material ID">
-                <Input value={materialId} onChange={(e) => setMaterialId(e.target.value)} />
+                <SearchableSelect
+                  value={materialId}
+                  onChange={setMaterialId}
+                  placeholder="Select material"
+                  options={materialOptions}
+                />
               </FormRow>
               <FormRow label="Qty">
                 <Input value={qty} onChange={(e) => setQty(e.target.value)} />
@@ -93,7 +117,12 @@ export default function InventoryPage() {
             <CardHeader><CardTitle>Issue To Cutting</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <FormRow label="Material ID">
-                <Input value={materialId} onChange={(e) => setMaterialId(e.target.value)} />
+                <SearchableSelect
+                  value={materialId}
+                  onChange={setMaterialId}
+                  placeholder="Select material"
+                  options={materialOptions}
+                />
               </FormRow>
               <FormRow label="Qty">
                 <Input value={qty} onChange={(e) => setQty(e.target.value)} />

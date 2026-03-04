@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FormRow } from "@/components/form-row";
 import { api, apiGet, apiPost } from "@/lib/api";
+import { requireText } from "@/lib/form-validation";
 import { useAppStore } from "@/lib/store";
 
 type Buyer = { id: string; name: string; country?: string };
@@ -29,24 +30,36 @@ export default function BuyersPage() {
   });
 
   const createBuyer = useMutation({
-    mutationFn: () => apiPost("/buyers", { name, country }),
+    mutationFn: () =>
+      apiPost("/buyers", {
+        name: requireText(name, "Name"),
+        country: country.trim() || undefined,
+      }),
     onSuccess: () => {
       setName("");
       setCountry("");
       queryClient.invalidateQueries({ queryKey: ["buyers"] });
       toast.success("Buyer created");
     },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? error?.message ?? "Failed to create buyer");
+    },
   });
 
   const updateBuyer = useMutation({
-    mutationFn: () =>
-      api.put(`/buyers/${selectedBuyer?.id}`, {
-        name: editForm.name,
-        country: editForm.country,
-      }),
+    mutationFn: () => {
+      if (!selectedBuyer?.id) throw new Error("Buyer is required");
+      return api.put(`/buyers/${selectedBuyer.id}`, {
+        name: requireText(editForm.name, "Name"),
+        country: editForm.country.trim() || undefined,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["buyers"] });
       toast.success("Buyer updated");
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? error?.message ?? "Failed to update buyer");
     },
   });
 

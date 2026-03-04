@@ -19,6 +19,35 @@ api.interceptors.request.use((config) => {
     config.headers["x-factory-id"] = factoryId;
   }
 
+  // Defensive payload normalization for plan assignment:
+  // backend DTO accepts date/targetQty only inside dailyTargets items.
+  if (
+    typeof config.url === "string" &&
+    /\/plans\/[^/]+\/assign$/.test(config.url) &&
+    config.data &&
+    typeof config.data === "object" &&
+    !Array.isArray(config.data)
+  ) {
+    const payload = config.data as Record<string, unknown>;
+    const {
+      poId,
+      poItemId,
+      lineId,
+      startDate,
+      endDate,
+      dailyTargets,
+    } = payload;
+
+    config.data = {
+      poId,
+      poItemId,
+      lineId,
+      startDate,
+      endDate,
+      dailyTargets,
+    };
+  }
+
   return config;
 });
 

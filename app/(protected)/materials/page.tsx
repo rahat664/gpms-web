@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FormRow } from "@/components/form-row";
 import { apiGet, apiPost } from "@/lib/api";
+import { requireText } from "@/lib/form-validation";
 import { useAppStore } from "@/lib/store";
 
 type Material = { id: string; name: string; type: string; uom: string };
@@ -29,13 +30,23 @@ export default function MaterialsPage() {
   });
 
   const createMaterial = useMutation({
-    mutationFn: () => apiPost("/materials", { name, type, uom }),
+    mutationFn: () =>
+      apiPost("/materials", {
+        name: requireText(name, "Name"),
+        type: requireText(type, "Type"),
+        uom: requireText(uom, "UOM"),
+      }),
     onSuccess: () => {
       setName("");
       setType("");
       setUom("");
       queryClient.invalidateQueries({ queryKey: ["materials"] });
       toast.success("Material created");
+    },
+    onError: (error: any) => {
+      toast.error(
+        error?.response?.data?.message ?? error?.message ?? "Failed to create material",
+      );
     },
   });
 

@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { FormRow } from "@/components/form-row";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { api, apiGet, apiPost } from "@/lib/api";
+import { requirePositiveNumber, requireText } from "@/lib/form-validation";
 import { useAppStore } from "@/lib/store";
 
 type Material = { id: string; name: string; uom: string };
@@ -44,7 +45,12 @@ export default function StylesPage() {
   });
 
   const createStyle = useMutation({
-    mutationFn: () => apiPost("/styles", { styleNo, name, season }),
+    mutationFn: () =>
+      apiPost("/styles", {
+        styleNo: requireText(styleNo, "Style No"),
+        name: requireText(name, "Name"),
+        season: season.trim() || undefined,
+      }),
     onSuccess: () => {
       setStyleNo("");
       setName("");
@@ -52,18 +58,26 @@ export default function StylesPage() {
       queryClient.invalidateQueries({ queryKey: ["styles"] });
       toast.success("Style created");
     },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? error?.message ?? "Failed to create style");
+    },
   });
 
   const updateStyle = useMutation({
-    mutationFn: () =>
-      api.put(`/styles/${selectedStyle?.id}`, {
-        styleNo: editForm.styleNo,
-        name: editForm.name,
-        season: editForm.season,
-      }),
+    mutationFn: () => {
+      if (!selectedStyle?.id) throw new Error("Style is required");
+      return api.put(`/styles/${selectedStyle.id}`, {
+        styleNo: requireText(editForm.styleNo, "Style No"),
+        name: requireText(editForm.name, "Name"),
+        season: editForm.season.trim() || undefined,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["styles"] });
       toast.success("Style updated");
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? error?.message ?? "Failed to update style");
     },
   });
 
@@ -77,15 +91,25 @@ export default function StylesPage() {
   });
 
   const saveBom = useMutation({
-    mutationFn: () =>
-      apiPost(`/styles/${selectedStyle?.id}/bom`, {
-        items: [{ materialId: bomMaterialId, consumption: Number(consumption) }],
-      }),
+    mutationFn: () => {
+      if (!selectedStyle?.id) throw new Error("Style is required");
+      return apiPost(`/styles/${selectedStyle.id}/bom`, {
+        items: [
+          {
+            materialId: requireText(bomMaterialId, "Material"),
+            consumption: requirePositiveNumber(consumption, "Consumption"),
+          },
+        ],
+      });
+    },
     onSuccess: () => {
       setBomMaterialId("");
       setConsumption("");
       queryClient.invalidateQueries({ queryKey: ["styles"] });
       toast.success("BOM saved");
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? error?.message ?? "Failed to save BOM");
     },
   });
 

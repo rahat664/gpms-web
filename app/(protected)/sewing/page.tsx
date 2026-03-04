@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { FormRow } from "@/components/form-row";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { apiGet, apiPost } from "@/lib/api";
+import { requireDate, requirePositiveNumber, requireText } from "@/lib/form-validation";
 import { useAppStore } from "@/lib/store";
 
 type LineStatus = {
@@ -22,10 +23,18 @@ type LineStatus = {
   wipCounts: Record<string, number>;
 };
 
+type BundleOption = {
+  id: string;
+  bundleCode: string;
+  size: string;
+  status: string;
+};
+
 export default function SewingPage() {
   const selectedDate = useAppStore((state) => state.selectedDate);
   const queryClient = useQueryClient();
   const [selectedLine, setSelectedLine] = useState<LineStatus | null>(null);
+  const [knownBundleIds, setKnownBundleIds] = useState<string[]>([]);
   const [form, setForm] = useState({
     lineId: "",
     date: selectedDate,
@@ -39,20 +48,32 @@ export default function SewingPage() {
     queryFn: () => apiGet<LineStatus[]>("/sewing/line-status", { date: form.date || selectedDate }),
     refetchInterval: 10000,
   });
+  const bundleOptionsQuery = useQuery({
+    queryKey: ["bundle-options"],
+    queryFn: () => apiGet<BundleOption[]>("/cutting/bundles"),
+  });
 
   const postOutput = useMutation({
     mutationFn: () =>
       apiPost("/sewing/hourly-output", {
-        ...form,
-        date: form.date || selectedDate,
-        hourSlot: Number(form.hourSlot),
-        qty: Number(form.qty),
-        bundleId: form.bundleId || undefined,
+        lineId: requireText(form.lineId, "Line"),
+        date: requireDate(form.date || selectedDate, "Date"),
+        hourSlot: requirePositiveNumber(form.hourSlot, "Hour Slot", 0),
+        qty: requirePositiveNumber(form.qty, "Qty"),
+        bundleId: form.bundleId.trim() || undefined,
       }),
     onSuccess: () => {
+      if (form.bundleId) {
+        setKnownBundleIds((current) =>
+          current.includes(form.bundleId) ? current : [form.bundleId, ...current],
+        );
+      }
       setForm((current) => ({ ...current, qty: "", bundleId: "" }));
       queryClient.invalidateQueries({ queryKey: ["line-status", form.date || selectedDate] });
       toast.success("Output submitted");
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? error?.message ?? "Failed to submit output");
     },
   });
 
@@ -88,7 +109,24 @@ export default function SewingPage() {
                   <Input value={form.qty} onChange={(e) => setForm({ ...form, qty: e.target.value })} />
                 </FormRow>
                 <FormRow label="Bundle ID">
-                  <Input value={form.bundleId} onChange={(e) => setForm({ ...form, bundleId: e.target.value })} />
+                  <SearchableSelect
+                    value={form.bundleId}
+                    onChange={(value) => setForm({ ...form, bundleId: value })}
+                    placeholder="Select or type bundle ID"
+                    allowCustom
+                    options={[
+                      ...(bundleOptionsQuery.data ?? []).map((bundle) => ({
+                        value: bundle.id,
+                        label: `${bundle.bundleCode} · ${bundle.size} · ${bundle.status}`,
+                        keywords: `${bundle.id} ${bundle.bundleCode}`,
+                      })),
+                      ...knownBundleIds.map((bundleId) => ({
+                        value: bundleId,
+                        label: bundleId,
+                        keywords: bundleId,
+                      })),
+                    ]}
+                  />
                 </FormRow>
               </div>
               <Button className="w-full" onClick={() => postOutput.mutate()} disabled={postOutput.isPending}>

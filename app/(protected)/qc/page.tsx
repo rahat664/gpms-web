@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FormRow } from "@/components/form-row";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { apiGet, apiPost } from "@/lib/api";
+import { requirePositiveNumber, requireText } from "@/lib/form-validation";
 import { useAppStore } from "@/lib/store";
 
 type QcSummary = {
@@ -19,9 +21,17 @@ type QcSummary = {
   topDefects: Array<{ defectType: string; count: number }>;
 };
 
+type BundleOption = {
+  id: string;
+  bundleCode: string;
+  size: string;
+  status: string;
+};
+
 export default function QcPage() {
   const selectedDate = useAppStore((state) => state.selectedDate);
   const queryClient = useQueryClient();
+  const [knownBundleIds, setKnownBundleIds] = useState<string[]>([]);
   const [form, setForm] = useState({
     bundleId: "",
     type: "INLINE",
@@ -36,19 +46,42 @@ export default function QcPage() {
     queryKey: ["qc-summary", date],
     queryFn: () => apiGet<QcSummary>("/qc/summary", { date }),
   });
+  const bundleOptionsQuery = useQuery({
+    queryKey: ["bundle-options"],
+    queryFn: () => apiGet<BundleOption[]>("/cutting/bundles"),
+  });
 
   const inspectMutation = useMutation({
-    mutationFn: () =>
-      apiPost("/qc/inspect", {
-        bundleId: form.bundleId,
-        type: form.type,
+    mutationFn: () => {
+      const type = requireText(form.type, "Type");
+      if (!["INLINE", "FINAL"].includes(type)) {
+        throw new Error("Type must be INLINE or FINAL");
+      }
+      if (!["true", "false"].includes(form.pass)) {
+        throw new Error("Pass must be true or false");
+      }
+
+      return apiPost("/qc/inspect", {
+        bundleId: requireText(form.bundleId, "Bundle ID"),
+        type,
         pass: form.pass === "true",
-        notes: form.notes || undefined,
+        notes: form.notes.trim() || undefined,
         defects: form.defectType
-          ? [{ defectType: form.defectType, count: Number(form.count) }]
+          ? [
+              {
+                defectType: requireText(form.defectType, "Defect Type"),
+                count: requirePositiveNumber(form.count, "Count"),
+              },
+            ]
           : undefined,
-      }),
+      });
+    },
     onSuccess: () => {
+      if (form.bundleId) {
+        setKnownBundleIds((current) =>
+          current.includes(form.bundleId) ? current : [form.bundleId, ...current],
+        );
+      }
       setForm({
         bundleId: "",
         type: "INLINE",
@@ -60,6 +93,9 @@ export default function QcPage() {
       queryClient.invalidateQueries({ queryKey: ["qc-summary", date] });
       toast.success("Inspection submitted");
     },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? error?.message ?? "Failed to submit inspection");
+    },
   });
 
   return (
@@ -70,7 +106,24 @@ export default function QcPage() {
             <CardHeader><CardTitle>Inspection Entry</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <FormRow label="Bundle ID">
-                <Input value={form.bundleId} onChange={(e) => setForm({ ...form, bundleId: e.target.value })} />
+                <SearchableSelect
+                  value={form.bundleId}
+                  onChange={(value) => setForm({ ...form, bundleId: value })}
+                  placeholder="Select or type bundle ID"
+                  allowCustom
+                  options={[
+                    ...(bundleOptionsQuery.data ?? []).map((bundle) => ({
+                      value: bundle.id,
+                      label: `${bundle.bundleCode} · ${bundle.size} · ${bundle.status}`,
+                      keywords: `${bundle.id} ${bundle.bundleCode}`,
+                    })),
+                    ...knownBundleIds.map((bundleId) => ({
+                      value: bundleId,
+                      label: bundleId,
+                      keywords: bundleId,
+                    })),
+                  ]}
+                />
               </FormRow>
               <div className="grid gap-4 md:grid-cols-2">
                 <FormRow label="Type">

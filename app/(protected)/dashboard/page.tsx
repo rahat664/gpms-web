@@ -29,7 +29,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormRow } from "@/components/form-row";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { apiGet, apiPost } from "@/lib/api";
+import { requirePositiveNumber, requireText } from "@/lib/form-validation";
 import { useAppStore } from "@/lib/store";
 
 type PlanActualRow = {
@@ -61,6 +63,13 @@ type DashboardBundle = {
   lastUpdated: string;
 };
 
+type BundleOption = {
+  id: string;
+  bundleCode: string;
+  size: string;
+  status: string;
+};
+
 const dashboardKey = (date: string, factoryId: string | null) => [
   "dashboard",
   date,
@@ -86,6 +95,7 @@ export default function DashboardPage() {
   const selectedDate = useAppStore((state) => state.selectedDate);
   const factoryId = useAppStore((state) => state.factoryId);
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
+  const [knownBundleIds, setKnownBundleIds] = useState<string[]>([]);
   const [outputForm, setOutputForm] = useState({
     lineId: "",
     hourSlot: String(new Date().getHours()),
@@ -100,16 +110,24 @@ export default function DashboardPage() {
     refetchInterval: factoryId ? 10000 : false,
     enabled: Boolean(factoryId),
   });
+  const bundleOptionsQuery = useQuery({
+    queryKey: ["bundle-options"],
+    queryFn: () => apiGet<BundleOption[]>("/cutting/bundles"),
+    enabled: Boolean(factoryId),
+  });
 
   const outputMutation = useMutation({
-    mutationFn: async () =>
-      apiPost("/sewing/hourly-output", {
-        lineId: outputForm.lineId,
+    mutationFn: async () => {
+      const hourSlot = requirePositiveNumber(outputForm.hourSlot, "Hour Slot", 0);
+      if (hourSlot > 23) throw new Error("Hour Slot must be between 0 and 23");
+      return apiPost("/sewing/hourly-output", {
+        lineId: requireText(outputForm.lineId, "Line"),
         date: selectedDate,
-        hourSlot: Number(outputForm.hourSlot),
-        qty: Number(outputForm.qty),
-        bundleId: outputForm.bundleId || undefined,
-      }),
+        hourSlot,
+        qty: requirePositiveNumber(outputForm.qty, "Qty"),
+        bundleId: outputForm.bundleId.trim() || undefined,
+      });
+    },
     onMutate: async () => {
       await queryClient.cancelQueries({
         queryKey: dashboardKey(selectedDate, factoryId),
@@ -149,9 +167,18 @@ export default function DashboardPage() {
           context.previous,
         );
       }
-      toast.error("Unable to post hourly output");
+      const message =
+        (_error as any)?.response?.data?.message ??
+        (_error as Error)?.message ??
+        "Unable to post hourly output";
+      toast.error(message);
     },
     onSuccess: () => {
+      if (outputForm.bundleId) {
+        setKnownBundleIds((current) =>
+          current.includes(outputForm.bundleId) ? current : [outputForm.bundleId, ...current],
+        );
+      }
       toast.success("Output posted");
       setOutputForm((current) => ({ ...current, qty: "", bundleId: "" }));
     },
@@ -334,15 +361,20 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <FormRow label="Line">
-                <Input
-                  placeholder="Line UUID"
+                <SearchableSelect
                   value={outputForm.lineId}
-                  onChange={(event) =>
+                  onChange={(value) =>
                     setOutputForm((current) => ({
                       ...current,
-                      lineId: event.target.value,
+                      lineId: value,
                     }))
                   }
+                  placeholder="Select line"
+                  options={(dashboard?.lineStatus ?? []).map((line) => ({
+                    value: line.lineId,
+                    label: line.lineName,
+                    keywords: line.lineId,
+                  }))}
                 />
               </FormRow>
               <div className="grid gap-4 md:grid-cols-2">
@@ -375,15 +407,28 @@ export default function DashboardPage() {
                 </FormRow>
               </div>
               <FormRow label="Bundle ID">
-                <Input
-                  placeholder="Optional"
+                <SearchableSelect
                   value={outputForm.bundleId}
-                  onChange={(event) =>
+                  onChange={(value) =>
                     setOutputForm((current) => ({
                       ...current,
-                      bundleId: event.target.value,
+                      bundleId: value,
                     }))
                   }
+                  placeholder="Select or type bundle ID"
+                  allowCustom
+                  options={[
+                    ...(bundleOptionsQuery.data ?? []).map((bundle) => ({
+                      value: bundle.id,
+                      label: `${bundle.bundleCode} · ${bundle.size} · ${bundle.status}`,
+                      keywords: `${bundle.id} ${bundle.bundleCode}`,
+                    })),
+                    ...knownBundleIds.map((bundleId) => ({
+                      value: bundleId,
+                      label: bundleId,
+                      keywords: bundleId,
+                    })),
+                  ]}
                 />
               </FormRow>
               <Button
