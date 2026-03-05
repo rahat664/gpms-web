@@ -149,6 +149,22 @@ export default function PosPage() {
       queryClient.invalidateQueries({ queryKey: ["po-detail", id] });
       toast.success("PO confirmed");
     },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? error?.message ?? "Failed to confirm PO");
+    },
+  });
+
+  const updatePoStatus = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "SHIPPED" | "CLOSED" }) =>
+      apiPost(`/pos/${id}/status`, { status }),
+    onSuccess: (_, { id, status }) => {
+      queryClient.invalidateQueries({ queryKey: ["pos-list"] });
+      queryClient.invalidateQueries({ queryKey: ["po-detail", id] });
+      toast.success(`PO moved to ${status.replaceAll("_", " ")}`);
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? error?.message ?? "Failed to update PO status");
+    },
   });
 
   const filtered = (posQuery.data ?? []).filter((po) =>
@@ -170,6 +186,7 @@ export default function PosPage() {
     () => (stylesQuery.data ?? []).find((style) => style.id === styleId) ?? null,
     [stylesQuery.data, styleId],
   );
+  const detailPo = poDetailQuery.data;
 
   const exportRequirementCsv = () => {
     const rows = (requirementQuery.data?.materials ?? []).map((material) => {
@@ -329,13 +346,43 @@ export default function PosPage() {
                     <TableCell>{po.buyer?.name ?? "-"}</TableCell>
                     <TableCell>{po._count?.items ?? 0}</TableCell>
                     <TableCell onClick={(event) => event.stopPropagation()}>
-                      <Button
-                        variant="outlined"
-                        disabled={po.status !== "DRAFT" || confirmPo.isPending}
-                        onClick={() => confirmPo.mutate(po.id)}
-                      >
-                        Confirm
-                      </Button>
+                      <Stack direction="row" spacing={1}>
+                        {po.status === "DRAFT" ? (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            disabled={confirmPo.isPending || updatePoStatus.isPending}
+                            onClick={() => confirmPo.mutate(po.id)}
+                          >
+                            Confirm
+                          </Button>
+                        ) : null}
+                        {po.status === "IN_PRODUCTION" ? (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            disabled={confirmPo.isPending || updatePoStatus.isPending}
+                            onClick={() => updatePoStatus.mutate({ id: po.id, status: "SHIPPED" })}
+                          >
+                            Ship
+                          </Button>
+                        ) : null}
+                        {po.status === "SHIPPED" ? (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            disabled={confirmPo.isPending || updatePoStatus.isPending}
+                            onClick={() => updatePoStatus.mutate({ id: po.id, status: "CLOSED" })}
+                          >
+                            Close
+                          </Button>
+                        ) : null}
+                        {!["DRAFT", "IN_PRODUCTION", "SHIPPED"].includes(po.status) ? (
+                          <Typography variant="caption" color="text.secondary">
+                            No action
+                          </Typography>
+                        ) : null}
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -355,7 +402,43 @@ export default function PosPage() {
       >
         <Stack spacing={3}>
           <Card>
-            <CardHeader title="PO Overview" />
+            <CardHeader
+              title="PO Overview"
+              action={
+                <Stack direction="row" spacing={1}>
+                  {detailPo?.status === "DRAFT" ? (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      disabled={confirmPo.isPending || updatePoStatus.isPending}
+                      onClick={() => confirmPo.mutate(detailPo.id)}
+                    >
+                      Confirm
+                    </Button>
+                  ) : null}
+                  {detailPo?.status === "IN_PRODUCTION" ? (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      disabled={confirmPo.isPending || updatePoStatus.isPending}
+                      onClick={() => updatePoStatus.mutate({ id: detailPo.id, status: "SHIPPED" })}
+                    >
+                      Ship
+                    </Button>
+                  ) : null}
+                  {detailPo?.status === "SHIPPED" ? (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      disabled={confirmPo.isPending || updatePoStatus.isPending}
+                      onClick={() => updatePoStatus.mutate({ id: detailPo.id, status: "CLOSED" })}
+                    >
+                      Close
+                    </Button>
+                  ) : null}
+                </Stack>
+              }
+            />
             <CardContent>
               <Box className="grid gap-4 md:grid-cols-3">
                 <Box className="rounded-2xl border border-white/10 bg-white/5 p-4">
