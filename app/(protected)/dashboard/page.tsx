@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -20,6 +20,7 @@ import {
   TimerReset,
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { PageShell } from "@/components/page-shell";
 import { MetricCard } from "@/components/MetricCard";
@@ -92,10 +93,12 @@ async function loadDashboard(date: string) {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const selectedDate = useAppStore((state) => state.selectedDate);
   const factoryId = useAppStore((state) => state.factoryId);
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
   const [knownBundleIds, setKnownBundleIds] = useState<string[]>([]);
+  const [nowTs, setNowTs] = useState(() => Date.now());
   const [outputForm, setOutputForm] = useState({
     lineId: "",
     hourSlot: String(new Date().getHours()),
@@ -191,6 +194,21 @@ export default function DashboardPage() {
 
   const dashboard = dashboardQuery.data;
 
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNowTs(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  const secondsSinceUpdate = useMemo(() => {
+    if (!dashboard?.lastUpdated) return 0;
+    const updatedAt = new Date(dashboard.lastUpdated).getTime();
+    const diffSeconds = Math.floor((nowTs - updatedAt) / 1000);
+    return diffSeconds > 0 ? diffSeconds : 0;
+  }, [dashboard?.lastUpdated, nowTs]);
+
   const metrics = useMemo(() => {
     const planned = dashboard?.planRows.reduce((sum, row) => sum + row.targetQty, 0) ?? 0;
     const produced = dashboard?.planRows.reduce((sum, row) => sum + row.actualQty, 0) ?? 0;
@@ -261,15 +279,23 @@ export default function DashboardPage() {
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
-                <Button className="justify-start gap-2">
+                <Button className="justify-start gap-2" onClick={() => router.push("/pos")}>
                   <PackagePlus className="h-4 w-4" />
                   Create PO
                 </Button>
-                <Button variant="outline" className="justify-start gap-2">
+                <Button
+                  variant="outline"
+                  className="justify-start gap-2"
+                  onClick={() => router.push("/sewing")}
+                >
                   <PlayCircle className="h-4 w-4" />
                   Record Output
                 </Button>
-                <Button variant="outline" className="justify-start gap-2">
+                <Button
+                  variant="outline"
+                  className="justify-start gap-2"
+                  onClick={() => router.push("/qc")}
+                >
                   <ClipboardCheck className="h-4 w-4" />
                   QC Inspect
                 </Button>
@@ -296,6 +322,12 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                   <span>Selected date</span>
                   <span className="font-medium text-foreground">{selectedDate}</span>
+                </div>
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <span>Seconds since update</span>
+                  <span className="font-medium text-foreground">
+                    {dashboard ? `${secondsSinceUpdate}s` : "-"}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                   <span>Factory context</span>

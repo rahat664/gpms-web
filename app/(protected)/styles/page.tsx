@@ -23,6 +23,34 @@ type Style = {
   season?: string;
   bom?: { items: Array<{ materialId: string; consumption: number; material: Material }> };
 };
+type BomDraftLine = {
+  key: string;
+  materialId: string;
+  consumption: string;
+};
+
+function createBomDraftLine(overrides?: Partial<Omit<BomDraftLine, "key">>): BomDraftLine {
+  return {
+    key: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    materialId: overrides?.materialId ?? "",
+    consumption: overrides?.consumption ?? "",
+  };
+}
+
+function toBomDraftLines(style: Style | null): BomDraftLine[] {
+  const items = style?.bom?.items ?? [];
+
+  if (items.length === 0) {
+    return [createBomDraftLine()];
+  }
+
+  return items.map((item) =>
+    createBomDraftLine({
+      materialId: item.materialId,
+      consumption: String(item.consumption),
+    }),
+  );
+}
 
 export default function StylesPage() {
   const queryClient = useQueryClient();
@@ -32,8 +60,7 @@ export default function StylesPage() {
   const [season, setSeason] = useState("");
   const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
   const [editForm, setEditForm] = useState({ styleNo: "", name: "", season: "" });
-  const [bomMaterialId, setBomMaterialId] = useState("");
-  const [consumption, setConsumption] = useState("");
+  const [bomLines, setBomLines] = useState<BomDraftLine[]>([createBomDraftLine()]);
 
   const stylesQuery = useQuery({
     queryKey: ["styles"],
@@ -93,18 +120,22 @@ export default function StylesPage() {
   const saveBom = useMutation({
     mutationFn: () => {
       if (!selectedStyle?.id) throw new Error("Style is required");
+
+      const items = bomLines.map((line, index) => ({
+        materialId: requireText(line.materialId, `Material ${index + 1}`),
+        consumption: requirePositiveNumber(line.consumption, `Consumption ${index + 1}`),
+      }));
+
+      const uniqueMaterialIds = new Set(items.map((item) => item.materialId));
+      if (uniqueMaterialIds.size !== items.length) {
+        throw new Error("Duplicate materials are not allowed in BOM");
+      }
+
       return apiPost(`/styles/${selectedStyle.id}/bom`, {
-        items: [
-          {
-            materialId: requireText(bomMaterialId, "Material"),
-            consumption: requirePositiveNumber(consumption, "Consumption"),
-          },
-        ],
+        items,
       });
     },
     onSuccess: () => {
-      setBomMaterialId("");
-      setConsumption("");
       queryClient.invalidateQueries({ queryKey: ["styles"] });
       toast.success("BOM saved");
     },
@@ -121,6 +152,19 @@ export default function StylesPage() {
           .includes(globalSearch),
       ),
     [globalSearch, stylesQuery.data],
+  );
+  const materialOptions = useMemo(
+    () =>
+      (materialsQuery.data ?? []).map((material) => ({
+        value: material.id,
+        label: `${material.name} · ${material.uom}`,
+        keywords: material.id,
+      })),
+    [materialsQuery.data],
+  );
+  const materialById = useMemo(
+    () => new Map((materialsQuery.data ?? []).map((material) => [material.id, material])),
+    [materialsQuery.data],
   );
 
   return (
@@ -179,6 +223,7 @@ export default function StylesPage() {
                         name: style.name ?? "",
                         season: style.season ?? "",
                       });
+                      setBomLines(toBomDraftLines(style));
                     }}
                   >
                     <TableCell>{style.styleNo}</TableCell>
@@ -196,7 +241,10 @@ export default function StylesPage() {
       <RightDrawer
         open={Boolean(selectedStyle)}
         onOpenChange={(open) => {
-          if (!open) setSelectedStyle(null);
+          if (!open) {
+            setSelectedStyle(null);
+            setBomLines([createBomDraftLine()]);
+          }
         }}
         title={selectedStyle?.styleNo ?? "Style Detail"}
         description="Style profile and BOM editor"
@@ -247,39 +295,86 @@ export default function StylesPage() {
             <Card>
               <CardHeader><CardTitle>BOM Editor</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <FormRow label="Material ID">
-                  <SearchableSelect
-                    value={bomMaterialId}
-                    onChange={setBomMaterialId}
-                    placeholder="Select material"
-                    options={(materialsQuery.data ?? []).map((material) => ({
-                      value: material.id,
-                      label: `${material.name} · ${material.uom}`,
-                      keywords: material.id,
-                    }))}
-                  />
-                </FormRow>
-                <FormRow label="Consumption">
-                  <Input
-                    value={consumption}
-                    onChange={(event) => setConsumption(event.target.value)}
-                  />
-                </FormRow>
-                <Button onClick={() => saveBom.mutate()} disabled={saveBom.isPending}>
-                  Save BOM
-                </Button>
+                {bomLines.map((line, index) => (
+                  <div
+                    key={line.key}
+                    className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4"
+                  >
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <FormRow label={`Material ${index + 1}`}>
+                        <SearchableSelect
+                          value={line.materialId}
+                          onChange={(value) =>
+                            setBomLines((current) =>
+                              current.map((entry) =>
+                                entry.key === line.key ? { ...entry, materialId: value } : entry,
+                              ),
+                            )
+                          }
+                          placeholder="Select material"
+                          options={materialOptions}
+                        />
+                      </FormRow>
+                      <FormRow label="Consumption">
+                        <Input
+                          value={line.consumption}
+                          onChange={(event) =>
+                            setBomLines((current) =>
+                              current.map((entry) =>
+                                entry.key === line.key
+                                  ? { ...entry, consumption: event.target.value }
+                                  : entry,
+                              ),
+                            )
+                          }
+                        />
+                      </FormRow>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={bomLines.length === 1 || saveBom.isPending}
+                        onClick={() =>
+                          setBomLines((current) => current.filter((entry) => entry.key !== line.key))
+                        }
+                      >
+                        Remove Line
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      setBomLines((current) => [...current, createBomDraftLine()])
+                    }
+                    disabled={saveBom.isPending}
+                  >
+                    Add Line
+                  </Button>
+                  <Button onClick={() => saveBom.mutate()} disabled={saveBom.isPending}>
+                    Save BOM
+                  </Button>
+                </div>
                 <div className="space-y-3">
-                  {(selectedStyle.bom?.items ?? []).map((item) => (
+                  {bomLines.map((line, index) => {
+                    const material = materialById.get(line.materialId);
+
+                    return (
                     <div
-                      key={`${selectedStyle.id}-${item.materialId}`}
+                      key={line.key}
                       className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
                     >
-                      <span>{item.material.name}</span>
+                      <span>{material?.name ?? `Line ${index + 1}`}</span>
                       <span className="text-sm text-muted-foreground">
-                        {item.consumption} / {item.material.uom}
+                        {line.consumption || "-"} / {material?.uom ?? "-"}
                       </span>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>

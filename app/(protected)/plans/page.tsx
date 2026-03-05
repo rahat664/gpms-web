@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { FormRow } from "@/components/form-row";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { apiGet, apiPost } from "@/lib/api";
+import { getLocalDateInputValue } from "@/lib/date";
 import {
   ensureDateOrder,
   requireDate,
@@ -65,10 +66,10 @@ export default function PlansPage() {
     enabled: Boolean(selectedPoId),
   });
   const lineQuery = useQuery({
-    queryKey: ["line-lookup", assign.date || startDate || new Date().toISOString().slice(0, 10)],
+    queryKey: ["line-lookup", assign.date || startDate || getLocalDateInputValue()],
     queryFn: () =>
       apiGet<Array<{ lineId: string; lineName: string }>>("/sewing/line-status", {
-        date: assign.date || startDate || new Date().toISOString().slice(0, 10),
+        date: assign.date || startDate || getLocalDateInputValue(),
       }),
   });
 

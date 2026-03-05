@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { getLocalDateInputValue } from "./date";
 
 type ThemeMode = "dark" | "light";
 type ActionIntent =
@@ -30,7 +31,7 @@ type AppStore = {
   clearActionIntent: () => void;
 };
 
-const today = new Date().toISOString().slice(0, 10);
+const today = getLocalDateInputValue();
 
 export const useAppStore = create<AppStore>()(
   persist(
@@ -58,9 +59,13 @@ export const useAppStore = create<AppStore>()(
       name: "gpms-ui-store",
       partialize: (state) => ({
         factoryId: state.factoryId,
-        selectedDate: state.selectedDate,
         theme: state.theme,
         sidebarCollapsed: state.sidebarCollapsed,
+      }),
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        ...(persistedState as Partial<AppStore>),
+        selectedDate: currentState.selectedDate,
       }),
     },
   ),
