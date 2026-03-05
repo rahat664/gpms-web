@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GPMS Frontend Process Report</title>
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #475569;
+      --line: #cbd5e1;
+      --brand: #0ea5e9;
+      --bg: #ffffff;
+      --soft: #f8fafc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+      line-height: 1.5;
+      font-size: 12.5pt;
+    }
+    .page {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 44px;
+    }
+    h1, h2, h3 { margin: 0 0 10px; line-height: 1.22; }
+    h1 { font-size: 30px; letter-spacing: 0.2px; }
+    h2 {
+      font-size: 19px;
+      margin-top: 30px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 7px;
+    }
+    h3 { font-size: 15.5px; margin-top: 16px; }
+    p { margin: 10px 0; }
+    ul { margin: 8px 0 10px 18px; }
+    li { margin: 5px 0; }
+    .cover {
+      min-height: 86vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 18px;
+    }
+    .tag {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid #bae6fd;
+      background: #f0f9ff;
+      color: #0c4a6e;
+      font-size: 11px;
+      letter-spacing: 0.35px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .muted { color: var(--muted); }
+    .meta {
+      margin-top: 8px;
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 8px 12px;
+      max-width: 620px;
+      font-size: 11.2pt;
+    }
+    .k { color: var(--muted); font-weight: 600; }
+    .callout {
+      margin: 12px 0;
+      border-left: 4px solid var(--brand);
+      background: var(--soft);
+      padding: 10px 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      font-size: 11.2pt;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 9px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #f1f5f9; }
+    code {
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 0.92em;
+      background: #f1f5f9;
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+    pre {
+      margin: 10px 0;
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 12px;
+      overflow: hidden;
+      white-space: pre-wrap;
+      font-size: 10.7pt;
+      line-height: 1.4;
+    }
+    .small { font-size: 10.8pt; }
+    .break { page-break-before: always; }
+    @media print {
+      .page { padding: 26px 30px; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page cover">
+    <span class="tag">Interview Submission</span>
+    <h1>GPMS Frontend Engineering Process Report</h1>
+    <p class="muted">A deep technical walkthrough of how the GPMS web application is architected, implemented, and operated end-to-end.</p>
+
+    <div class="meta">
+      <div class="k">Project</div><div>GPMS (Garment Production Management System) - Web Frontend</div>
+      <div class="k">Stack</div><div>Next.js 15, React 19, TypeScript, React Query, MUI, Tailwind, Zustand, Axios</div>
+      <div class="k">Live URL</div><div>https://gpms-web664.vercel.app</div>
+      <div class="k">API URL</div><div>https://clever-serenity-production.up.railway.app/api</div>
+      <div class="k">API Docs</div><div>https://clever-serenity-production.up.railway.app/api/docs</div>
+      <div class="k">Report Date</div><div>March 5, 2026</div>
+    </div>
+
+    <div class="callout small">
+      This document is intentionally implementation-level. It is written to demonstrate product thinking, architecture decisions, execution depth, and delivery quality expected from a senior individual contributor.
+    </div>
+  </div>
+
+  <div class="page break">
+    <h2>1. Executive Summary</h2>
+    <p>
+      GPMS Web is a production operations cockpit for garment manufacturing. The frontend is not a static dashboard; it is an operational system where planners, supervisors, store teams, and QC teams continuously update state that directly impacts downstream workflow.
+    </p>
+    <p>
+      My implementation approach focused on three principles:
+    </p>
+    <ul>
+      <li><strong>Workflow correctness first:</strong> UI actions are mapped to explicit backend transitions and guarded validations.</li>
+      <li><strong>Single source of truth for context:</strong> factory scope and selected date are shared globally so all pages represent the same operational day/factory.</li>
+      <li><strong>Low-friction operations:</strong> direct-entry forms, command palette, drawer details, and quick actions reduce navigation cost for floor users.</li>
+    </ul>
+
+    <h3>Key frontend outcomes delivered</h3>
+    <ul>
+      <li>PO lifecycle actions integrated in both table and detail drawer.</li>
+      <li>BOM editor upgraded from single-line submission to true multi-line authoring.</li>
+      <li>Date handling corrected to local-today default and synchronized across dashboard, sewing, QC, and topbar.</li>
+      <li>Dashboard CTA buttons wired to functional pages.</li>
+      <li>Linting infrastructure converted to non-interactive ESLint CLI for CI-friendly quality gates.</li>
+      <li>Interview-ready and engineering-ready documentation added.</li>
+    </ul>
+
+    <h2>2. Product Context and End-to-End Flow</h2>
+    <p>
+      The web app models a realistic factory process:
+    </p>
+    <pre>Buyer -> Style + BOM -> PO -> Material Requirement -> Inventory -> Planning -> Cutting -> Sewing -> QC -> Shipment/Closure</pre>
+    <p>
+      The frontend supports each stage with dedicated route modules and shared context controls (factory + date + search).
+    </p>
+
+    <table>
+      <thead>
+        <tr><th>Domain</th><th>Core Route</th><th>Main Intent</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Master Data</td><td><code>/buyers</code>, <code>/materials</code>, <code>/styles</code></td><td>Build clean operational reference data</td></tr>
+        <tr><td>Ordering</td><td><code>/pos</code></td><td>Create and progress purchase orders with status tracking</td></tr>
+        <tr><td>Supply</td><td><code>/inventory</code></td><td>Receive and issue materials, inspect stock posture</td></tr>
+        <tr><td>Execution Plan</td><td><code>/plans</code></td><td>Assign PO items to lines and dates</td></tr>
+        <tr><td>Production</td><td><code>/cutting</code>, <code>/sewing</code>, <code>/qc</code></td><td>Execute floor work and quality decisions</td></tr>
+        <tr><td>Control Tower</td><td><code>/dashboard</code></td><td>Real-time aggregate visibility and quick actions</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="page break">
+    <h2>3. Frontend Architecture</h2>
+
+    <h3>3.1 Application Shell</h3>
+    <ul>
+      <li><strong>Root layout:</strong> font loading, MUI cache provider, global providers.</li>
+      <li><strong>Protected layout:</strong> all operational pages wrapped in auth gate.</li>
+      <li><strong>App shell:</strong> persistent sidebar, topbar, command palette, contextual action drawer.</li>
+    </ul>
+
+    <h3>3.2 Provider Stack</h3>
+    <p>Global providers are initialized once and used across routes:</p>
+    <ul>
+      <li><code>QueryClientProvider</code> for server state and caching.</li>
+      <li><code>ThemeProvider</code> (MUI dark-first theme with custom design tokens).</li>
+      <li><code>AuthProvider</code> for session hydration and user/factory bootstrap.</li>
+      <li><code>Toaster</code> for action feedback and error visibility.</li>
+    </ul>
+
+    <h3>3.3 Auth and Access Flow</h3>
+    <ul>
+      <li>Session hydration on startup with <code>GET /auth/me</code>.</li>
+      <li>If unauthenticated, immediate redirect to <code>/login?next=...</code>.</li>
+      <li>Factory context auto-selected from persisted value, activeFactory, or first accessible factory.</li>
+      <li>Logout performs backend logout and client state cleanup.</li>
+    </ul>
+
+    <h3>3.4 Global State (Zustand)</h3>
+    <p>State model balances persistence and correctness:</p>
+    <ul>
+      <li>Persisted: <code>factoryId</code>, theme, sidebar state.</li>
+      <li>Not persisted by design: <code>selectedDate</code> (resets to local today each load).</li>
+      <li>Operational utilities: command palette state, action intents, global search.</li>
+    </ul>
+
+    <div class="callout small">
+      Key design decision: avoid persisting date to prevent stale operational context on next-day logins.
+    </div>
+
+    <h3>3.5 API Integration Contract</h3>
+    <ul>
+      <li>Axios client with credentials enabled by default.</li>
+      <li>Request interceptor injects <code>x-factory-id</code>.</li>
+      <li>Defensive request normalization for plan assignment payloads.</li>
+      <li>All user-facing mutations report success/failure via toast notifications.</li>
+    </ul>
+
+    <h2>4. Navigation and Usability Design</h2>
+    <ul>
+      <li>Sidebar navigation for full module coverage.</li>
+      <li>Topbar as universal context bar (factory, date, global search).</li>
+      <li>Command palette (<code>Cmd/Ctrl + K</code>) for quick jumps and guided action intents.</li>
+      <li>Right-side drawer pattern for details to reduce page transitions.</li>
+      <li>Live dashboard CTAs for direct operational routing.</li>
+    </ul>
+  </div>
+
+  <div class="page break">
+    <h2>5. Module-Level Process Walkthrough</h2>
+
+    <h3>5.1 Buyers</h3>
+    <p>CRUD lifecycle with edit/delete actions in detail drawer. Supports buyer master reliability before PO creation.</p>
+
+    <h3>5.2 Styles and BOM</h3>
+    <p>
+      This module is foundational because PO material requirement quality depends on BOM quality.
+    </p>
+    <ul>
+      <li>Style create/update/delete supported.</li>
+      <li>Multi-line BOM editing implemented in frontend.</li>
+      <li>Duplicate materials prevented client-side before save.</li>
+      <li>Saves full <code>items[]</code> payload in one operation (compatible with backend replace semantics).</li>
+    </ul>
+
+    <h3>5.3 Materials</h3>
+    <p>Material master setup (name, type, UOM). Used by BOM, inventory ledger, and PO requirement views.</p>
+
+    <h3>5.4 Purchase Orders</h3>
+    <p>PO screen includes create, add items, status progression, requirement visibility, and stock coverage.</p>
+    <ul>
+      <li>Actions in table and detail drawer.</li>
+      <li>Status controls aligned to backend guards.</li>
+      <li>Material requirement CSV export available for operational handoff.</li>
+    </ul>
+
+    <h3>5.5 Inventory</h3>
+    <p>Supports both inbound receive and issue-to-cutting operations, with running stock position table.</p>
+
+    <h3>5.6 Planning</h3>
+    <p>Planner can create plan, assign PO item to sewing line, and define dated targets.</p>
+    <p>Assignment integrates downstream status behavior (PO enters production when assignment begins).</p>
+
+    <h3>5.7 Cutting</h3>
+    <ul>
+      <li>Create cutting batch against PO item.</li>
+      <li>Generate bundles with size/qty lines.</li>
+      <li>Bundle state and detail exploration through table + drawer.</li>
+    </ul>
+
+    <h3>5.8 Sewing</h3>
+    <ul>
+      <li>Submit hourly output by line/hour/qty and optional bundle linkage.</li>
+      <li>Live line status polling and WIP visibility.</li>
+      <li>Date control synchronized to global selected date (fixed drift issue).</li>
+    </ul>
+
+    <h3>5.9 QC</h3>
+    <ul>
+      <li>Inspection entry (INLINE/FINAL, pass/fail, defects).</li>
+      <li>QC summary by selected date.</li>
+      <li>Date also synchronized to global selected date.</li>
+    </ul>
+
+    <h3>5.10 Dashboard</h3>
+    <ul>
+      <li>Aggregates plan-vs-actual, line status, and QC summary.</li>
+      <li>Includes quick hourly output posting with optimistic updates.</li>
+      <li>Live status strip with incremental seconds since last update.</li>
+      <li>CTAs route directly to PO, Sewing, and QC operational pages.</li>
+    </ul>
+  </div>
+
+  <div class="page break">
+    <h2>6. Engineering Decisions and Tradeoffs</h2>
+
+    <h3>6.1 Why React Query for server state</h3>
+    <ul>
+      <li>Built-in stale/refetch lifecycle for manufacturing dashboards.</li>
+      <li>Easy query invalidation after mutations.</li>
+      <li>Supports optimistic patching where immediate feedback matters.</li>
+    </ul>
+
+    <h3>6.2 Why keep factory/date in shared store</h3>
+    <ul>
+      <li>Avoids inconsistent cross-page context.</li>
+      <li>Prevents accidental queries against wrong factory/day.</li>
+      <li>Reduces user mistakes during rapid operational switching.</li>
+    </ul>
+
+    <h3>6.3 Status progression discipline</h3>
+    <p>
+      Frontend does not fake lifecycle completion. Status buttons call backend transitions that enforce operational readiness checks.
+      This keeps UI behavior trustworthy under real usage.
+    </p>
+
+    <h3>6.4 UI system strategy</h3>
+    <ul>
+      <li>MUI for robust controls and behavior.</li>
+      <li>Tailwind + utility wrappers for layout speed and visual consistency.</li>
+      <li>Reusable app shell and drawer model to standardize flows.</li>
+    </ul>
+
+    <h2>7. Reliability, Validation, and Error Handling</h2>
+
+    <h3>7.1 Input validation</h3>
+    <p>Centralized utility checks for required text, valid dates, positive quantities, and date order constraints.</p>
+
+    <h3>7.2 Mutation feedback pattern</h3>
+    <ul>
+      <li>All mutations show success/failure toasts.</li>
+      <li>Error messages prioritize backend response payload if present.</li>
+      <li>Critical lists/details are invalidated after successful mutations.</li>
+    </ul>
+
+    <h3>7.3 Polling and freshness</h3>
+    <ul>
+      <li>Dashboard and line status poll periodically where data volatility is high.</li>
+      <li>Incremental update counter gives operators confidence in recency.</li>
+    </ul>
+
+    <h3>7.4 Lint and build posture</h3>
+    <ul>
+      <li>ESLint CLI now non-interactive and CI-compatible.</li>
+      <li>Build pipeline passes consistently.</li>
+      <li>Known warnings remain and are explicitly trackable for debt cleanup.</li>
+    </ul>
+  </div>
+
+  <div class="page break">
+    <h2>8. Recent Defects Identified and Fixed</h2>
+
+    <table>
+      <thead>
+        <tr><th>Issue</th><th>Impact</th><th>Fix</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Dashboard Record Output / QC buttons not wired</td>
+          <td>Users clicked actions with no result</td>
+          <td>Added explicit route navigation handlers to operational pages</td>
+        </tr>
+        <tr>
+          <td>Date defaults showed previous day in some cases</td>
+          <td>Incorrect data context from timezone shift</td>
+          <td>Introduced local-date helper and removed UTC-based defaulting</td>
+        </tr>
+        <tr>
+          <td>Date drift across pages</td>
+          <td>QC/Sewing could diverge from topbar/dashboard date</td>
+          <td>Bound QC/Sewing date controls to shared global store date</td>
+        </tr>
+        <tr>
+          <td>BOM editor only allowed one line at a time</td>
+          <td>Unsafe UX against backend replace-all BOM API</td>
+          <td>Implemented full multi-line BOM editor with add/remove and full payload save</td>
+        </tr>
+        <tr>
+          <td>PO status controls incomplete in UI</td>
+          <td>Users could not progress to shipment/closure in frontend</td>
+          <td>Added status action controls and error feedback in table + detail drawer</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>9. Deployment and Runtime</h2>
+    <ul>
+      <li><strong>Frontend:</strong> Vercel-hosted Next.js app.</li>
+      <li><strong>Backend:</strong> Railway-hosted API with cookie auth and factory-scope header.</li>
+      <li><strong>Docs:</strong> Swagger available for endpoint verification and integration confidence.</li>
+    </ul>
+
+    <h3>Operational endpoints</h3>
+    <ul>
+      <li>Frontend: https://gpms-web664.vercel.app</li>
+      <li>API: https://clever-serenity-production.up.railway.app/api</li>
+      <li>Swagger: https://clever-serenity-production.up.railway.app/api/docs</li>
+    </ul>
+
+    <h2>10. Forward Roadmap (Interview Discussion Points)</h2>
+    <ul>
+      <li>Harden type safety by replacing residual <code>any</code> with API-aware typed error envelopes.</li>
+      <li>Add integration tests for critical cross-module flows (PO -> Plan -> Production -> QC -> Ship/Close).</li>
+      <li>Promote lint warnings to errors after planned cleanup sprint.</li>
+      <li>Add role-aware UI affordances using backend roles (ADMIN/PLANNER/STORE/QC/etc).</li>
+      <li>Introduce event/activity feed for traceability on major state transitions.</li>
+      <li>Add export packs (CSV/PDF) for management and client reporting.</li>
+    </ul>
+
+    <h2>11. Closing Note</h2>
+    <p>
+      This frontend was built and refined as an operations-first system: consistent context, strict workflow alignment, low interaction cost, and transparent state transitions. The implementation choices prioritize real factory usability over demo-only polish, while still maintaining scalable architecture and clean extensibility.
+    </p>
+  </div>
+</body>
+</html>

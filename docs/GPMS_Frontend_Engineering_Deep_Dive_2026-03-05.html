@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GPMS Frontend Engineering Deep Dive</title>
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #475569;
+      --line: #cbd5e1;
+      --brand: #0284c7;
+      --soft: #f8fafc;
+      --soft-2: #eef2ff;
+      --ok: #166534;
+      --warn: #92400e;
+      --err: #991b1b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+      line-height: 1.5;
+      font-size: 12pt;
+      background: white;
+    }
+    .page {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 38px 46px;
+    }
+    h1, h2, h3 { margin: 0 0 10px; line-height: 1.25; }
+    h1 { font-size: 29px; }
+    h2 {
+      font-size: 20px;
+      margin-top: 30px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 7px;
+    }
+    h3 { font-size: 15.5px; margin-top: 18px; }
+    p { margin: 9px 0; }
+    ul { margin: 8px 0 11px 18px; }
+    li { margin: 4px 0; }
+    .cover {
+      min-height: 86vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 16px;
+    }
+    .tag {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid #bae6fd;
+      background: #f0f9ff;
+      color: #0c4a6e;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.28px;
+      text-transform: uppercase;
+    }
+    .meta {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: 210px 1fr;
+      gap: 8px 12px;
+      font-size: 11.2pt;
+      max-width: 760px;
+    }
+    .k { color: var(--muted); font-weight: 700; }
+    .muted { color: var(--muted); }
+    .callout {
+      border-left: 4px solid var(--brand);
+      background: var(--soft);
+      padding: 11px 13px;
+      margin: 12px 0;
+    }
+    .callout-warn {
+      border-left: 4px solid #f59e0b;
+      background: #fffbeb;
+      padding: 11px 13px;
+      margin: 12px 0;
+    }
+    .callout-good {
+      border-left: 4px solid #22c55e;
+      background: #f0fdf4;
+      padding: 11px 13px;
+      margin: 12px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      font-size: 11.2pt;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 9px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      background: #f1f5f9;
+      font-weight: 700;
+    }
+    code {
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 0.92em;
+      background: #f1f5f9;
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+    pre {
+      margin: 10px 0;
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 12px;
+      white-space: pre-wrap;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 10.6pt;
+      line-height: 1.4;
+    }
+    .chip {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10.5pt;
+      border: 1px solid var(--line);
+      margin-right: 6px;
+    }
+    .ok { color: var(--ok); border-color: #86efac; background: #f0fdf4; }
+    .warn { color: var(--warn); border-color: #fcd34d; background: #fffbeb; }
+    .err { color: var(--err); border-color: #fca5a5; background: #fef2f2; }
+    .break { page-break-before: always; }
+    .small { font-size: 10.8pt; }
+    @media print {
+      .page { padding: 24px 28px; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page cover">
+    <span class="tag">Interview Submission</span>
+    <h1>GPMS Frontend Engineering Deep Dive</h1>
+    <p class="muted">Implementation-level process and architecture report based on the current production frontend codebase.</p>
+
+    <div class="meta">
+      <div class="k">Project</div><div>GPMS (Garment Production Management System) - Web Frontend</div>
+      <div class="k">Frontend Stack</div><div>Next.js 15 App Router, React 19, TypeScript, React Query, MUI, Tailwind, Zustand</div>
+      <div class="k">Live Frontend</div><div>https://gpms-web664.vercel.app</div>
+      <div class="k">API Base</div><div>https://clever-serenity-production.up.railway.app/api</div>
+      <div class="k">Swagger</div><div>https://clever-serenity-production.up.railway.app/api/docs</div>
+      <div class="k">Reference Date</div><div>March 5, 2026</div>
+      <div class="k">Prepared For</div><div>Frontend engineering interview evaluation</div>
+    </div>
+
+    <div class="callout small">
+      This report focuses on depth: architecture rationale, domain workflow mapping, technical tradeoffs, quality posture, and explicit next-step hardening opportunities.
+    </div>
+  </div>
+
+  <div class="page break">
+    <h2>1. What I Built and Why</h2>
+    <p>
+      GPMS Web is an operational system, not a brochure UI. Users execute daily manufacturing workflows: create master data, create and progress POs, plan production lines, capture output, run QC, and monitor plan-vs-actual in near real time.
+    </p>
+    <p>
+      I built the frontend around one core requirement: <strong>workflow correctness under fast-moving factory usage</strong>. The architecture is intentionally shaped to keep context consistent (factory/date), prevent accidental drift, and align user actions with backend business rules.
+    </p>
+
+    <h3>Engineering goals</h3>
+    <ul>
+      <li>Keep operational context globally consistent across routes.</li>
+      <li>Ensure every primary user action maps cleanly to a backend transition.</li>
+      <li>Provide high-velocity interaction patterns (quick forms, drawers, command palette, CTA routing).</li>
+      <li>Retain implementation clarity for future contributors.</li>
+    </ul>
+
+    <h3>Business process covered end-to-end</h3>
+    <pre>Buyer -> Style/BOM -> PO -> Material Requirement -> Inventory -> Plan -> Cutting -> Sewing -> QC -> Shipment/Closure</pre>
+
+    <table>
+      <thead>
+        <tr><th>Stage</th><th>Primary Routes</th><th>Main Outcome</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Master Data</td><td><code>/buyers</code>, <code>/materials</code>, <code>/styles</code></td><td>Establish clean, reusable operating data</td></tr>
+        <tr><td>Order Management</td><td><code>/pos</code></td><td>Create/manage PO lifecycle and requirement visibility</td></tr>
+        <tr><td>Supply Control</td><td><code>/inventory</code></td><td>Receive/issue stock with current position visibility</td></tr>
+        <tr><td>Execution Planning</td><td><code>/plans</code></td><td>Assign PO items to lines with dated targets</td></tr>
+        <tr><td>Floor Execution</td><td><code>/cutting</code>, <code>/sewing</code>, <code>/qc</code></td><td>Track bundle progress, hourly output, and quality results</td></tr>
+        <tr><td>Control Tower</td><td><code>/dashboard</code></td><td>Aggregate KPIs and fast cross-module actions</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="page break">
+    <h2>2. Frontend System Architecture</h2>
+
+    <h3>2.1 App composition</h3>
+    <ul>
+      <li><strong>Root layout:</strong> fonts, MUI App Router cache provider, global providers.</li>
+      <li><strong>Protected layout:</strong> every operational route wrapped by auth gate.</li>
+      <li><strong>Shell pattern:</strong> persistent sidebar + topbar + command palette + contextual right drawer.</li>
+    </ul>
+
+    <h3>2.2 Provider stack</h3>
+    <ul>
+      <li><code>QueryClientProvider</code> for server state/caching/invalidation.</li>
+      <li><code>ThemeProvider</code> for dark-first MUI theming.</li>
+      <li><code>AuthProvider</code> for session hydration and factory bootstrap.</li>
+      <li><code>Toaster</code> for non-blocking operation feedback.</li>
+    </ul>
+
+    <h3>2.3 Auth and access model</h3>
+    <ul>
+      <li>Client hydrates session with <code>GET /auth/me</code> on startup.</li>
+      <li>Unauthenticated access redirects to <code>/login?next=...</code>.</li>
+      <li>Factory is selected from persisted factory, <code>activeFactory</code>, or first accessible factory.</li>
+      <li>Logout calls backend endpoint then clears local auth/factory context.</li>
+    </ul>
+
+    <h3>2.4 Context and state strategy (Zustand)</h3>
+    <p>State is split by durability requirements:</p>
+    <ul>
+      <li>Persisted: <code>factoryId</code>, theme, sidebar collapsed state.</li>
+      <li>Non-persisted by design: <code>selectedDate</code> (resets to local today at page load).</li>
+      <li>Ephemeral UX state: command palette open, action intent, global search text.</li>
+    </ul>
+
+    <div class="callout">
+      <strong>Key decision:</strong> date is intentionally non-persistent to avoid stale-day execution errors when users return the next day.
+    </div>
+
+    <h3>2.5 API client contract</h3>
+    <ul>
+      <li>Axios with <code>withCredentials: true</code> for cookie auth.</li>
+      <li>Interceptor injects <code>x-factory-id</code> from store into every scoped request.</li>
+      <li>Defensive request normalization for <code>/plans/:id/assign</code> payload shape.</li>
+      <li>Thin wrappers <code>apiGet</code> and <code>apiPost</code> keep page code concise.</li>
+    </ul>
+  </div>
+
+  <div class="page break">
+    <h2>3. UX System and Interaction Process</h2>
+
+    <h3>3.1 Navigation and orchestration</h3>
+    <ul>
+      <li>Sidebar exposes all manufacturing domains in one stable frame.</li>
+      <li>Topbar standardizes cross-page context controls: factory, date, global search.</li>
+      <li>Command palette (<code>Cmd/Ctrl + K</code>) provides fast route switching and action intents.</li>
+      <li>Action-intent drawer maps quick commands to the right module (PO, buyer, sewing, QC).</li>
+    </ul>
+
+    <h3>3.2 Page-level interaction pattern</h3>
+    <p>Most modules follow a repeatable pattern:</p>
+    <ul>
+      <li>Left panel: create/update forms.</li>
+      <li>Main panel: table/grid of current records.</li>
+      <li>Detail drawer: focused edits, progression actions, or drill-down analytics.</li>
+      <li>React Query invalidation after mutation to keep view coherent.</li>
+    </ul>
+
+    <h3>3.3 Real-time visibility design</h3>
+    <ul>
+      <li>Dashboard polls every 10 seconds for plan/line/QC snapshots.</li>
+      <li>Sewing status also polls every 10 seconds for floor visibility.</li>
+      <li>Dashboard includes optimistic output posting for immediate operator feedback.</li>
+      <li>Live timestamp and seconds-since-update indicator communicate freshness explicitly.</li>
+    </ul>
+
+    <h3>3.4 Responsive behavior</h3>
+    <ul>
+      <li>Desktop shell with collapsible left navigation.</li>
+      <li>Mobile overlay nav using animated sheet and backdrop dismiss.</li>
+      <li>Table + drawer approach preserves detail access without dense routing complexity.</li>
+    </ul>
+  </div>
+
+  <div class="page break">
+    <h2>4. Domain Module Walkthrough (Implementation Depth)</h2>
+
+    <h3>4.1 Buyers</h3>
+    <ul>
+      <li>Create, update, delete buyer records.</li>
+      <li>Global search integrates with local filtered table.</li>
+      <li>Detail drawer supports in-place edits and destructive action.</li>
+    </ul>
+
+    <h3>4.2 Styles and BOM</h3>
+    <ul>
+      <li>Style CRUD with dedicated BOM editor in same flow.</li>
+      <li>BOM supports multi-line material entries.</li>
+      <li>Client prevents duplicate material IDs in a BOM before submit.</li>
+      <li>Save operation sends full <code>items[]</code> payload, matching backend replace semantics.</li>
+    </ul>
+
+    <h3>4.3 Materials</h3>
+    <ul>
+      <li>Material creation (name/type/UOM).</li>
+      <li>Serves as upstream data for BOM and inventory calculations.</li>
+      <li>Drawer presents quick profile details for selected material.</li>
+    </ul>
+
+    <h3>4.4 Purchase Orders</h3>
+    <ul>
+      <li>Create PO header, add line items, confirm draft, update lifecycle status.</li>
+      <li>Status controls appear in both registry table and detail drawer.</li>
+      <li>Material requirement panel compares required qty vs current stock.</li>
+      <li>CSV export for operations handoff (<code>Material, Required, Stock, UOM, Shortage</code>).</li>
+    </ul>
+
+    <h3>4.5 Inventory</h3>
+    <ul>
+      <li>Receive operation posts <code>refType: "GRN"</code>.</li>
+      <li>Issue operation posts <code>refType: "ISSUE_CUTTING"</code>.</li>
+      <li>Shared material selector reduces input errors and aligns IDs with stock records.</li>
+    </ul>
+
+    <h3>4.6 Planning</h3>
+    <ul>
+      <li>Create named plan with start/end dates.</li>
+      <li>Assign PO item to line with assignment range and dated target payload.</li>
+      <li>Plan detail table and drawer expose assignment and targets for review.</li>
+      <li>Client pre-validates date order before API submission.</li>
+    </ul>
+  </div>
+
+  <div class="page break">
+    <h2>5. Production Floor Modules</h2>
+
+    <h3>5.1 Cutting</h3>
+    <ul>
+      <li>Select PO then PO item to create cutting batch.</li>
+      <li>Generate bundles by size + quantity against selected batch.</li>
+      <li>Batch and bundle details are queryable and shown in drawer drill-down.</li>
+    </ul>
+
+    <h3>5.2 Sewing</h3>
+    <ul>
+      <li>Post hourly output by line/date/hour/qty with optional bundle linkage.</li>
+      <li>Date field is tied to global date to prevent module drift.</li>
+      <li>Status table shows total output, per-hour split, and WIP composition.</li>
+      <li>Line drawer expands hourly + WIP breakdown for focused review.</li>
+    </ul>
+
+    <h3>5.3 QC</h3>
+    <ul>
+      <li>Submit inspection with type, pass/fail, optional notes, optional defect rows.</li>
+      <li>QC summary query by selected date returns pass rate, DHU estimate, and top defects.</li>
+      <li>Bundle selector allows existing bundle choices and custom typed IDs.</li>
+    </ul>
+
+    <h3>5.4 Dashboard</h3>
+    <ul>
+      <li>Aggregates three data streams concurrently:
+        <code>/reports/plan-vs-actual</code>, <code>/sewing/line-status</code>, <code>/qc/summary</code>.</li>
+      <li>Computes and displays derived KPIs (planned, produced, efficiency, WIP, defect rate).</li>
+      <li>Provides quick output form and CTA routing into PO, Sewing, and QC flows.</li>
+      <li>Line monitor cards open a detail drawer with hourly chart + WIP chips + top defects.</li>
+    </ul>
+
+    <h3>5.5 Example mutation flow (dashboard quick output)</h3>
+    <pre>1) Validate line/hour/qty locally
+2) Cancel in-flight dashboard query
+3) Snapshot previous dashboard cache
+4) Apply optimistic increment to line + plan rows
+5) POST /sewing/hourly-output
+6) On error: rollback cache snapshot + toast
+7) On settle: invalidate dashboard query for server truth</pre>
+  </div>
+
+  <div class="page break">
+    <h2>6. Engineering Quality: Validation, Resilience, and Tradeoffs</h2>
+
+    <h3>6.1 Validation strategy</h3>
+    <p>Common validation is centralized in <code>lib/form-validation.ts</code>:</p>
+    <ul>
+      <li><code>requireText</code> for mandatory string fields.</li>
+      <li><code>requireDate</code> and <code>ensureDateOrder</code> for date-safe workflows.</li>
+      <li><code>requirePositiveNumber</code> with configurable minimum (including hour slot lower bound of 0).</li>
+    </ul>
+
+    <h3>6.2 Error handling contract</h3>
+    <ul>
+      <li>Mutations use consistent <code>onError</code> parsing of backend message first, fallback to generic.</li>
+      <li>Toasts communicate action status without blocking the operator.</li>
+      <li>Detail/list queries are invalidated after successful mutations to preserve consistency.</li>
+    </ul>
+
+    <h3>6.3 Where correctness is intentionally backend-owned</h3>
+    <ul>
+      <li>PO state transition legality (including shipping/closing readiness).</li>
+      <li>Factory authorization and access validation.</li>
+      <li>Inventory sufficiency checks for issue operations.</li>
+      <li>QC and production constraints.</li>
+    </ul>
+
+    <div class="callout-good">
+      <strong>Design position:</strong> frontend accelerates the workflow, backend owns final authority. This avoids client-side state assumptions becoming business truth.
+    </div>
+
+    <h3>6.4 Performance posture</h3>
+    <ul>
+      <li>React Query caching prevents unnecessary refetch thrash.</li>
+      <li>Parallel API loading on dashboard with <code>Promise.all</code>.</li>
+      <li>Optimistic updates for immediate response in high-frequency output entry.</li>
+      <li>UI animations are scoped and lightweight (framer-motion for transitions, not heavy layout loops).</li>
+    </ul>
+
+    <h3>6.5 Known technical debt</h3>
+    <ul>
+      <li>Residual <code>any</code> in error handlers and a few UI wrappers.</li>
+      <li>One hook dependency warning in <code>resource-page.tsx</code>.</li>
+      <li>Theme toggle currently sets document color scheme to dark in provider effect.</li>
+    </ul>
+  </div>
+
+  <div class="page break">
+    <h2>7. Build and Lint Evidence (Executed March 5, 2026)</h2>
+
+    <h3>7.1 Lint</h3>
+    <p>Command: <code>pnpm lint</code></p>
+    <p>
+      <span class="chip ok">0 errors</span>
+      <span class="chip warn">26 warnings</span>
+    </p>
+    <p class="small muted">Most warnings are <code>@typescript-eslint/no-explicit-any</code> and a small set of unused vars / hook dependency notices.</p>
+
+    <h3>7.2 Production build</h3>
+    <p>Command: <code>pnpm build</code></p>
+    <p>
+      <span class="chip ok">Build succeeded</span>
+      <span class="chip warn">Next workspace-root warning only</span>
+    </p>
+
+    <h3>7.3 Route footprint from build output</h3>
+    <table>
+      <thead>
+        <tr><th>Route</th><th>Page Size</th><th>First Load JS</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>/dashboard</code></td><td>110 kB</td><td>403 kB</td></tr>
+        <tr><td><code>/pos</code></td><td>6.24 kB</td><td>302 kB</td></tr>
+        <tr><td><code>/plans</code></td><td>3.35 kB</td><td>299 kB</td></tr>
+        <tr><td><code>/styles</code></td><td>3.34 kB</td><td>299 kB</td></tr>
+        <tr><td><code>/cutting</code></td><td>2.77 kB</td><td>298 kB</td></tr>
+        <tr><td><code>/inventory</code></td><td>2.52 kB</td><td>298 kB</td></tr>
+        <tr><td><code>/qc</code></td><td>2.59 kB</td><td>298 kB</td></tr>
+        <tr><td><code>/sewing</code></td><td>2.64 kB</td><td>298 kB</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout-warn small">
+      The dashboard is expectedly the heaviest route due to charting, multi-query aggregation, and monitoring widgets. This is acceptable for current scope but should be watched as module complexity grows.
+    </div>
+  </div>
+
+  <div class="page break">
+    <h2>8. Example End-to-End Scenario (Operator Journey)</h2>
+
+    <h3>Scenario: from new order to shipment readiness</h3>
+    <ol>
+      <li>Create buyer, materials, style, and multi-line BOM.</li>
+      <li>Create PO and add items.</li>
+      <li>Confirm PO.</li>
+      <li>Review PO material requirement against current stock table.</li>
+      <li>Receive missing stock in inventory.</li>
+      <li>Create production plan and assign PO item to line with target date/qty.</li>
+      <li>Create cutting batch and generate bundles.</li>
+      <li>Post sewing hourly outputs against line and bundle.</li>
+      <li>Submit QC inspections and defect records.</li>
+      <li>From PO module, execute Ship then Close transitions once backend conditions are satisfied.</li>
+    </ol>
+
+    <h3>Frontend mechanisms that make this reliable</h3>
+    <ul>
+      <li>Shared date/factory context means every stage refers to one operating slice.</li>
+      <li>Drawer details reduce context switching while retaining full record depth.</li>
+      <li>Dashboard gives real-time aggregate confidence before progression actions.</li>
+      <li>Error toasts expose backend rule failures in plain workflow context.</li>
+    </ul>
+
+    <h2>9. What This Demonstrates About My Engineering Depth</h2>
+    <ul>
+      <li><strong>System thinking:</strong> I mapped UI by manufacturing value stream, not by isolated screens.</li>
+      <li><strong>Architecture discipline:</strong> I enforced global context and clean request contracts.</li>
+      <li><strong>Execution quality:</strong> I implemented high-velocity UX patterns while preserving backend truth.</li>
+      <li><strong>Operational realism:</strong> I handled polling, optimistic updates, and lifecycle transitions where day-to-day users feel friction.</li>
+      <li><strong>Technical honesty:</strong> I can clearly identify debt and hardening priorities, not only feature output.</li>
+    </ul>
+
+    <h2>10. Next Hardening Plan</h2>
+    <ul>
+      <li>Replace all residual <code>any</code> with typed API error envelopes.</li>
+      <li>Add integration tests for critical chain: PO -> Plan -> Cutting -> Sewing -> QC -> Ship/Close.</li>
+      <li>Add role-aware UI constraints to mirror backend role model for operator clarity.</li>
+      <li>Split dashboard heavy widgets via dynamic imports if bundle pressure grows.</li>
+      <li>Promote lint warnings to errors after cleanup sprint.</li>
+    </ul>
+
+    <p class="small muted">
+      Final note: the current frontend is production-capable for the defined workflow scope and structured for maintainable growth.
+    </p>
+  </div>
+</body>
+</html>
