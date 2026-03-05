@@ -30,6 +30,7 @@ type BundleOption = {
 
 export default function QcPage() {
   const selectedDate = useAppStore((state) => state.selectedDate);
+  const setSelectedDate = useAppStore((state) => state.setSelectedDate);
   const queryClient = useQueryClient();
   const [knownBundleIds, setKnownBundleIds] = useState<string[]>([]);
   const [form, setForm] = useState({
@@ -40,11 +41,9 @@ export default function QcPage() {
     defectType: "",
     count: "",
   });
-  const [date, setDate] = useState(selectedDate);
-
   const summaryQuery = useQuery({
-    queryKey: ["qc-summary", date],
-    queryFn: () => apiGet<QcSummary>("/qc/summary", { date }),
+    queryKey: ["qc-summary", selectedDate],
+    queryFn: () => apiGet<QcSummary>("/qc/summary", { date: selectedDate }),
   });
   const bundleOptionsQuery = useQuery({
     queryKey: ["bundle-options"],
@@ -90,7 +89,7 @@ export default function QcPage() {
         defectType: "",
         count: "",
       });
-      queryClient.invalidateQueries({ queryKey: ["qc-summary", date] });
+      queryClient.invalidateQueries({ queryKey: ["qc-summary", selectedDate] });
       toast.success("Inspection submitted");
     },
     onError: (error: any) => {
@@ -153,7 +152,7 @@ export default function QcPage() {
             <CardHeader><CardTitle>QC Summary</CardTitle></CardHeader>
             <CardContent className="space-y-6">
               <FormRow label="Date">
-                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
               </FormRow>
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">

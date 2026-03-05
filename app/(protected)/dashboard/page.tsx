@@ -202,12 +202,9 @@ export default function DashboardPage() {
     return () => window.clearInterval(intervalId);
   }, []);
 
-  const secondsSinceUpdate = useMemo(() => {
-    if (!dashboard?.lastUpdated) return 0;
-    const updatedAt = new Date(dashboard.lastUpdated).getTime();
-    const diffSeconds = Math.floor((nowTs - updatedAt) / 1000);
-    return diffSeconds > 0 ? diffSeconds : 0;
-  }, [dashboard?.lastUpdated, nowTs]);
+  const secondsSinceUpdate = dashboard?.lastUpdated
+    ? Math.max(0, Math.floor((nowTs - new Date(dashboard.lastUpdated).getTime()) / 1000))
+    : 0;
 
   const metrics = useMemo(() => {
     const planned = dashboard?.planRows.reduce((sum, row) => sum + row.targetQty, 0) ?? 0;

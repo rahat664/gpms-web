@@ -32,20 +32,20 @@ type BundleOption = {
 
 export default function SewingPage() {
   const selectedDate = useAppStore((state) => state.selectedDate);
+  const setSelectedDate = useAppStore((state) => state.setSelectedDate);
   const queryClient = useQueryClient();
   const [selectedLine, setSelectedLine] = useState<LineStatus | null>(null);
   const [knownBundleIds, setKnownBundleIds] = useState<string[]>([]);
   const [form, setForm] = useState({
     lineId: "",
-    date: selectedDate,
     hourSlot: "",
     qty: "",
     bundleId: "",
   });
 
   const statusQuery = useQuery({
-    queryKey: ["line-status", form.date || selectedDate],
-    queryFn: () => apiGet<LineStatus[]>("/sewing/line-status", { date: form.date || selectedDate }),
+    queryKey: ["line-status", selectedDate],
+    queryFn: () => apiGet<LineStatus[]>("/sewing/line-status", { date: selectedDate }),
     refetchInterval: 10000,
   });
   const bundleOptionsQuery = useQuery({
@@ -57,7 +57,7 @@ export default function SewingPage() {
     mutationFn: () =>
       apiPost("/sewing/hourly-output", {
         lineId: requireText(form.lineId, "Line"),
-        date: requireDate(form.date || selectedDate, "Date"),
+        date: requireDate(selectedDate, "Date"),
         hourSlot: requirePositiveNumber(form.hourSlot, "Hour Slot", 0),
         qty: requirePositiveNumber(form.qty, "Qty"),
         bundleId: form.bundleId.trim() || undefined,
@@ -69,7 +69,7 @@ export default function SewingPage() {
         );
       }
       setForm((current) => ({ ...current, qty: "", bundleId: "" }));
-      queryClient.invalidateQueries({ queryKey: ["line-status", form.date || selectedDate] });
+      queryClient.invalidateQueries({ queryKey: ["line-status", selectedDate] });
       toast.success("Output submitted");
     },
     onError: (error: any) => {
@@ -98,7 +98,7 @@ export default function SewingPage() {
               </FormRow>
               <div className="grid gap-4 md:grid-cols-2">
                 <FormRow label="Date">
-                  <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+                  <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
                 </FormRow>
                 <FormRow label="Hour Slot">
                   <Input value={form.hourSlot} onChange={(e) => setForm({ ...form, hourSlot: e.target.value })} />
