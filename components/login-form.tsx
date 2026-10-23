@@ -62,6 +62,8 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
                 type="password"
                 autoComplete="current-password"
                 required
+                autoComplete="current-password"
+                required
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
               />
