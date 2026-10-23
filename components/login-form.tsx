@@ -18,8 +18,8 @@ type LoginResponse = {
 };
 
 export function LoginForm({ nextPath }: { nextPath?: string }) {
-  const [email, setEmail] = useState("admin@gpms.com");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
@@ -55,11 +55,13 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
         <CardContent>
           <form className="space-y-4" onSubmit={onSubmit}>
             <FormRow label="Email">
-              <Input value={email} onChange={(event) => setEmail(event.target.value)} />
+              <Input type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} />
             </FormRow>
             <FormRow label="Password">
               <Input
                 type="password"
+                autoComplete="current-password"
+                required
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
               />

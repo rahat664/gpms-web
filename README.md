@@ -93,9 +93,7 @@ In `apps/web/package.json`:
   - `GET /auth/me`
   - `POST /auth/logout`
 - `ProtectedPage` redirects anonymous users to `/login?next=...`.
-- Login form currently defaults to:
-  - email: `admin@gpms.com`
-  - password: `admin123`
+- Login fields start empty. Development demo credentials, when used, should be documented separately and must never grant access to a production environment.
 
 ## Global App Context
 
